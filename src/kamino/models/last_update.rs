@@ -1,10 +1,10 @@
 use std::cmp::Ordering;
 
+use crate::kamino::utils::errors::LendingError;
 use bitflags::bitflags;
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::Zeroable;
 use solana_program::clock::Slot;
-use crate::kamino::utils::errors::LendingError;
 
 pub const STALE_AFTER_SLOTS_ELAPSED: u64 = 1;
 
@@ -72,30 +72,8 @@ impl LastUpdate {
     }
 
     pub fn slots_elapsed(&self, slot: Slot) -> Result<u64, LendingError> {
-        let slots_elapsed = slot
-            .checked_sub(self.slot)
-            .ok_or(LendingError::MathOverflow)?;
+        let slots_elapsed = slot.checked_sub(self.slot).ok_or(LendingError::MathOverflow)?;
         Ok(slots_elapsed)
-    }
-
-    pub fn update_slot(&mut self, slot: Slot, price_status: impl Into<Option<PriceStatusFlags>>) {
-        let price_status: Option<PriceStatusFlags> = price_status.into();
-        self.slot = slot;
-        self.stale = false as u8;
-        if let Some(price_status) = price_status {
-            self.price_status = price_status.bits();
-        }
-    }
-
-    pub fn mark_stale(&mut self) {
-        self.stale = true as u8;
-    }
-
-    pub fn is_stale(&self, slot: Slot, min_price_status: PriceStatusFlags) -> Result<bool, LendingError> {
-        let is_price_status_ok = self.get_price_status().contains(min_price_status);
-        Ok(self.stale != (false as u8)
-            || self.slots_elapsed(slot)? >= STALE_AFTER_SLOTS_ELAPSED
-            || !is_price_status_ok)
     }
 
     pub fn get_price_status(&self) -> PriceStatusFlags {

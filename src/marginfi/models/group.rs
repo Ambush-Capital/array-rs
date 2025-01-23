@@ -13,7 +13,7 @@ use crate::{
         },
         prelude::{MarginfiError, MarginfiResult},
     },
-    math_error, set_if_some,
+    math_error,
 };
 use anchor_lang::prelude::borsh;
 use anchor_lang::prelude::*;
@@ -57,25 +57,6 @@ impl MarginfiGroup {
 
     /// Bits in use for flag settings.
     const ALLOWED_FLAGS: u64 = Self::PROGRAM_FEES_ENABLED;
-    // To add: const ALLOWED_FLAGS: u64 = PROGRAM_FEES_ENABLED | ANOTHER_FEATURE_BIT;
-
-    /// Configure the group parameters.
-    /// This function validates config values so the group remains in a valid state.
-    /// Any modification of group config should happen through this function.
-    pub fn configure(&mut self, config: &GroupConfig) -> MarginfiResult {
-        set_if_some!(self.admin, config.admin);
-
-        Ok(())
-    }
-
-    /// Set the group parameters when initializing a group.
-    /// This should be called only when the group is first initialized.
-    /// Both margin requirements are initially set to 100% and should be configured before use.
-    #[allow(clippy::too_many_arguments)]
-    pub fn set_initial_configuration(&mut self, admin_pk: Pubkey) {
-        self.admin = admin_pk;
-        self.group_flags = Self::PROGRAM_FEES_ENABLED;
-    }
 
     pub fn get_group_bank_config(&self) -> GroupBankConfig {
         GroupBankConfig { program_fees: self.group_flags == Self::PROGRAM_FEES_ENABLED }
@@ -89,14 +70,6 @@ impl MarginfiGroup {
 
         Ok(())
     }
-
-    /// Sets flag and errors if a disallowed flag is set
-    pub fn set_flags(&mut self, flag: u64) -> MarginfiResult {
-        Self::validate_flags(flag)?;
-        self.group_flags = flag;
-        Ok(())
-    }
-
     /// True if program fees are enabled
     pub fn program_fees_enabled(&self) -> bool {
         (self.group_flags & Self::PROGRAM_FEES_ENABLED) != 0
@@ -213,17 +186,6 @@ impl InterestRateConfig {
         check!(plateau_ir < max_ir, MarginfiError::InvalidConfig);
 
         Ok(())
-    }
-
-    pub fn update(&mut self, ir_config: &InterestRateConfigOpt) {
-        set_if_some!(self.optimal_utilization_rate, ir_config.optimal_utilization_rate);
-        set_if_some!(self.plateau_interest_rate, ir_config.plateau_interest_rate);
-        set_if_some!(self.max_interest_rate, ir_config.max_interest_rate);
-        set_if_some!(self.insurance_fee_fixed_apr, ir_config.insurance_fee_fixed_apr);
-        set_if_some!(self.insurance_ir_fee, ir_config.insurance_ir_fee);
-        set_if_some!(self.protocol_fixed_fee_apr, ir_config.protocol_fixed_fee_apr);
-        set_if_some!(self.protocol_ir_fee, ir_config.protocol_ir_fee);
-        set_if_some!(self.protocol_origination_fee, ir_config.protocol_origination_fee);
     }
 }
 

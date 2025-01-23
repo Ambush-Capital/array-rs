@@ -291,17 +291,6 @@ impl Reserve {
         self.collateral.exchange_rate(total_liquidity)
     }
 
-    /// Update borrow rate and accrue interest
-    pub fn accrue_interest(&mut self, current_slot: Slot) -> ProgramResult {
-        let slots_elapsed = self.last_update.slots_elapsed(current_slot)?;
-        if slots_elapsed > 0 {
-            let current_borrow_rate = self.current_borrow_rate()?;
-            let take_rate = Rate::from_percent(self.config.protocol_take_rate);
-            self.liquidity.compound_interest(current_borrow_rate, slots_elapsed, take_rate)?;
-        }
-        Ok(())
-    }
-
     /// Borrow liquidity up to a maximum market value
     pub fn calculate_borrow(
         &self,
@@ -684,31 +673,6 @@ impl ReserveLiquidity {
             self.borrowed_amount_wads.try_add(Decimal::from(self.available_amount))?;
         self.borrowed_amount_wads.try_div(denominator)?.try_into()
     }
-
-    /// Compound current borrow rate over elapsed slots
-    fn compound_interest(
-        &mut self,
-        current_borrow_rate: Rate,
-        slots_elapsed: u64,
-        take_rate: Rate,
-    ) -> ProgramResult {
-        let slot_interest_rate = current_borrow_rate.try_div(SLOTS_PER_YEAR)?;
-        let compounded_interest_rate =
-            Rate::one().try_add(slot_interest_rate)?.try_pow(slots_elapsed)?;
-        self.cumulative_borrow_rate_wads =
-            self.cumulative_borrow_rate_wads.try_mul(compounded_interest_rate)?;
-
-        let net_new_debt = self
-            .borrowed_amount_wads
-            .try_mul(compounded_interest_rate)?
-            .try_sub(self.borrowed_amount_wads)?;
-
-        self.accumulated_protocol_fees_wads =
-            net_new_debt.try_mul(take_rate)?.try_add(self.accumulated_protocol_fees_wads)?;
-
-        self.borrowed_amount_wads = self.borrowed_amount_wads.try_add(net_new_debt)?;
-        Ok(())
-    }
 }
 
 /// Create a new reserve liquidity
@@ -748,24 +712,6 @@ impl ReserveCollateral {
             mint_total_supply: 0,
             supply_pubkey: params.supply_pubkey,
         }
-    }
-
-    /// Add collateral to total supply
-    pub fn mint(&mut self, collateral_amount: u64) -> ProgramResult {
-        self.mint_total_supply = self
-            .mint_total_supply
-            .checked_add(collateral_amount)
-            .ok_or(LendingError::MathOverflow)?;
-        Ok(())
-    }
-
-    /// Remove collateral from total supply
-    pub fn burn(&mut self, collateral_amount: u64) -> ProgramResult {
-        self.mint_total_supply = self
-            .mint_total_supply
-            .checked_sub(collateral_amount)
-            .ok_or(LendingError::MathOverflow)?;
-        Ok(())
     }
 
     /// Return the current collateral exchange rate.
@@ -1744,100 +1690,6 @@ mod test {
 
             let current_rate = liquidity.utilization_rate()?;
             assert!(current_rate <= Rate::one());
-        }
-
-        #[test]
-        fn collateral_exchange_rate(
-            total_liquidity in 0..=MAX_LIQUIDITY,
-            borrowed_percent in 0..=WAD,
-            collateral_multiplier in 0..=(5*WAD),
-            borrow_rate in 0..=u8::MAX,
-        ) {
-            let borrowed_liquidity_wads = Decimal::from(total_liquidity).try_mul(Rate::from_scaled_val(borrowed_percent))?;
-            let available_liquidity = total_liquidity - borrowed_liquidity_wads.try_round_u64()?;
-            let mint_total_supply = Decimal::from(total_liquidity).try_mul(Rate::from_scaled_val(collateral_multiplier))?.try_round_u64()?;
-
-            let mut reserve = Reserve {
-                collateral: ReserveCollateral {
-                    mint_total_supply,
-                    ..ReserveCollateral::default()
-                },
-                liquidity: ReserveLiquidity {
-                    borrowed_amount_wads: borrowed_liquidity_wads,
-                    available_amount: available_liquidity,
-                    ..ReserveLiquidity::default()
-                },
-                config: ReserveConfig {
-                    min_borrow_rate: borrow_rate,
-                    optimal_borrow_rate: borrow_rate,
-                    optimal_utilization_rate: 100,
-                    ..ReserveConfig::default()
-                },
-                ..Reserve::default()
-            };
-
-            let exchange_rate = reserve.collateral_exchange_rate()?;
-            assert!(exchange_rate.0.to_scaled_val() <= 5u128 * WAD as u128);
-
-            // After interest accrual, total liquidity increases and collateral are worth more
-            reserve.accrue_interest(1)?;
-
-            let new_exchange_rate = reserve.collateral_exchange_rate()?;
-            if borrow_rate > 0 && total_liquidity > 0 && borrowed_percent > 0 {
-                assert!(new_exchange_rate.0 < exchange_rate.0);
-            } else {
-                assert_eq!(new_exchange_rate.0, exchange_rate.0);
-            }
-        }
-
-        #[test]
-        fn compound_interest(
-            slots_elapsed in 0..=SLOTS_PER_YEAR,
-            borrow_rate in 0..=u8::MAX,
-            take_rate in 0..=100u8,
-        ) {
-            let mut reserve = Reserve::default();
-            let borrow_rate = Rate::from_percent(borrow_rate);
-            let take_rate = Rate::from_percent(take_rate);
-
-            // Simulate running for max 1000 years, assuming that interest is
-            // compounded at least once a year
-            for _ in 0..1000 {
-                reserve.liquidity.compound_interest(borrow_rate, slots_elapsed, take_rate)?;
-                reserve.liquidity.cumulative_borrow_rate_wads.to_scaled_val()?;
-                reserve.liquidity.accumulated_protocol_fees_wads.to_scaled_val()?;
-            }
-        }
-
-        #[test]
-        fn reserve_accrue_interest(
-            slots_elapsed in 0..=SLOTS_PER_YEAR,
-            borrowed_liquidity in 0..=u64::MAX,
-            borrow_rate in 0..=u8::MAX,
-        ) {
-            let borrowed_amount_wads = Decimal::from(borrowed_liquidity);
-            let mut reserve = Reserve {
-                liquidity: ReserveLiquidity {
-                    borrowed_amount_wads,
-                    ..ReserveLiquidity::default()
-                },
-                config: ReserveConfig {
-                    min_borrow_rate: borrow_rate,
-                    optimal_borrow_rate: borrow_rate,
-                    max_borrow_rate: borrow_rate,
-                    super_max_borrow_rate: borrow_rate as u64,
-                    ..ReserveConfig::default()
-                },
-                ..Reserve::default()
-            };
-
-            reserve.accrue_interest(slots_elapsed)?;
-
-            if borrow_rate > 0 && slots_elapsed > 0 {
-                assert!(reserve.liquidity.borrowed_amount_wads > borrowed_amount_wads);
-            } else {
-                assert!(reserve.liquidity.borrowed_amount_wads == borrowed_amount_wads);
-            }
         }
 
         #[test]

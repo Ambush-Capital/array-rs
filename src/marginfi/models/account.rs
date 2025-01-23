@@ -3,7 +3,7 @@ use super::{
     price::OraclePriceType,
 };
 use crate::{
-    assert_struct_align, assert_struct_size, check,
+    assert_struct_align, assert_struct_size,
     marginfi::utils::constants::{ASSET_TAG_DEFAULT, EMPTY_BALANCE_THRESHOLD, EXP_10_I80F48},
     marginfi::utils::prelude::{MarginfiError, MarginfiResult},
     math_error,
@@ -219,30 +219,6 @@ impl Balance {
         shares < EMPTY_BALANCE_THRESHOLD
     }
 
-    pub fn change_asset_shares(&mut self, delta: I80F48) -> MarginfiResult {
-        let asset_shares: I80F48 = self.asset_shares.into();
-        self.asset_shares = asset_shares.checked_add(delta).ok_or_else(math_error!())?.into();
-        Ok(())
-    }
-
-    pub fn change_liability_shares(&mut self, delta: I80F48) -> MarginfiResult {
-        let liability_shares: I80F48 = self.liability_shares.into();
-        self.liability_shares =
-            liability_shares.checked_add(delta).ok_or_else(math_error!())?.into();
-        Ok(())
-    }
-
-    pub fn close(&mut self) -> MarginfiResult {
-        check!(
-            I80F48::from(self.emissions_outstanding) < I80F48::ONE,
-            MarginfiError::CannotCloseOutstandingEmissions
-        );
-
-        *self = Self::empty_deactivated();
-
-        Ok(())
-    }
-
     pub fn get_side(&self) -> Option<BalanceSide> {
         let asset_shares = I80F48::from(self.asset_shares);
         let liability_shares = I80F48::from(self.liability_shares);
@@ -294,48 +270,5 @@ impl<'a> BankAccountWrapper<'a> {
             .ok_or_else(|| error!(MarginfiError::BankAccountNotFound))?;
 
         Ok(Self { balance, bank })
-    }
-
-    // Find existing user lending account balance by bank address.
-    // Create it if not found.
-    pub fn find_or_create(
-        bank_pk: &Pubkey,
-        bank: &'a mut Bank,
-        lending_account: &'a mut LendingAccount,
-    ) -> MarginfiResult<BankAccountWrapper<'a>> {
-        let balance_index = lending_account
-            .balances
-            .iter()
-            .position(|balance| balance.active && balance.bank_pk.eq(bank_pk));
-
-        match balance_index {
-            Some(balance_index) => {
-                let balance = lending_account
-                    .balances
-                    .get_mut(balance_index)
-                    .ok_or_else(|| error!(MarginfiError::BankAccountNotFound))?;
-
-                Ok(Self { balance, bank })
-            }
-            None => {
-                let empty_index = lending_account
-                    .get_first_empty_balance()
-                    .ok_or_else(|| error!(MarginfiError::LendingAccountBalanceSlotsFull))?;
-
-                lending_account.balances[empty_index] = Balance {
-                    active: true,
-                    bank_pk: *bank_pk,
-                    bank_asset_tag: bank.config.asset_tag,
-                    _pad0: [0; 6],
-                    asset_shares: I80F48::ZERO.into(),
-                    liability_shares: I80F48::ZERO.into(),
-                    emissions_outstanding: I80F48::ZERO.into(),
-                    last_update: Clock::get()?.unix_timestamp as u64,
-                    _padding: [0; 1],
-                };
-
-                Ok(Self { balance: lending_account.balances.get_mut(empty_index).unwrap(), bank })
-            }
-        }
     }
 }

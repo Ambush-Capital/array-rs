@@ -1,20 +1,20 @@
 use crate::save::error::LendingError;
-use crate::save::math::{Decimal, Rate, TryAdd, TryDiv, TryMul, TrySub};
+use crate::save::math::{Decimal, Rate, TryDiv, TryMul, TrySub};
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use solana_program::{
     clock::Slot,
-    entrypoint::ProgramResult,
     msg,
     program_error::ProgramError,
     program_pack::{IsInitialized, Pack, Sealed},
     pubkey::{Pubkey, PUBKEY_BYTES},
 };
-use std::{
-    cmp::{min, Ordering},
-    convert::{TryFrom, TryInto},
-};
+use std::{cmp::min, convert::TryFrom};
 
-use super::{pack_bool, pack_decimal, unpack_bool, unpack_decimal, LastUpdate, Reserve, LIQUIDATION_CLOSE_FACTOR, MAX_LIQUIDATABLE_VALUE_AT_ONCE, PROGRAM_VERSION, UNINITIALIZED_VERSION};
+use super::{
+    pack_bool, pack_decimal, unpack_bool, unpack_decimal, LastUpdate, Reserve,
+    LIQUIDATION_CLOSE_FACTOR, MAX_LIQUIDATABLE_VALUE_AT_ONCE, PROGRAM_VERSION,
+    UNINITIALIZED_VERSION,
+};
 
 /// Max number of collateral and liquidity reserve accounts combined for an obligation
 pub const MAX_OBLIGATION_RESERVES: usize = 10;
@@ -87,28 +87,6 @@ impl Obligation {
         self.borrowed_value.try_div(self.deposited_value)
     }
 
-    /// Repay liquidity and remove it from borrows if zeroed out
-    pub fn repay(&mut self, settle_amount: Decimal, liquidity_index: usize) -> ProgramResult {
-        let liquidity = &mut self.borrows[liquidity_index];
-        if settle_amount == liquidity.borrowed_amount_wads {
-            self.borrows.remove(liquidity_index);
-        } else {
-            liquidity.repay(settle_amount)?;
-        }
-        Ok(())
-    }
-
-    /// Withdraw collateral and remove it from deposits if zeroed out
-    pub fn withdraw(&mut self, withdraw_amount: u64, collateral_index: usize) -> ProgramResult {
-        let collateral = &mut self.deposits[collateral_index];
-        if withdraw_amount == collateral.deposited_amount {
-            self.deposits.remove(collateral_index);
-        } else {
-            collateral.withdraw(withdraw_amount)?;
-        }
-        Ok(())
-    }
-
     /// calculate the maximum amount of collateral that can be borrowed
     pub fn max_withdraw_amount(
         &self,
@@ -169,8 +147,7 @@ impl Obligation {
 
     /// Calculate the maximum liquidity value that can be borrowed
     pub fn remaining_borrow_value(&self) -> Result<Decimal, ProgramError> {
-        self.allowed_borrow_value
-            .try_sub(self.borrowed_value_upper_bound)
+        self.allowed_borrow_value.try_sub(self.borrowed_value_upper_bound)
     }
 
     /// Calculate the maximum liquidation amount for a given liquidity
@@ -203,30 +180,8 @@ impl Obligation {
         Ok((&self.deposits[collateral_index], collateral_index))
     }
 
-    /// Find or add collateral by deposit reserve
-    pub fn find_or_add_collateral_to_deposits(
-        &mut self,
-        deposit_reserve: Pubkey,
-    ) -> Result<&mut ObligationCollateral, ProgramError> {
-        if let Some(collateral_index) = self._find_collateral_index_in_deposits(deposit_reserve) {
-            return Ok(&mut self.deposits[collateral_index]);
-        }
-        if self.deposits.len() + self.borrows.len() >= MAX_OBLIGATION_RESERVES {
-            msg!(
-                "Obligation cannot have more than {} deposits and borrows combined",
-                MAX_OBLIGATION_RESERVES
-            );
-            return Err(LendingError::ObligationReserveLimit.into());
-        }
-        let collateral = ObligationCollateral::new(deposit_reserve);
-        self.deposits.push(collateral);
-        Ok(self.deposits.last_mut().unwrap())
-    }
-
     fn _find_collateral_index_in_deposits(&self, deposit_reserve: Pubkey) -> Option<usize> {
-        self.deposits
-            .iter()
-            .position(|collateral| collateral.deposit_reserve == deposit_reserve)
+        self.deposits.iter().position(|collateral| collateral.deposit_reserve == deposit_reserve)
     }
 
     /// Find liquidity by borrow reserve
@@ -259,31 +214,8 @@ impl Obligation {
         Ok((&mut self.borrows[liquidity_index], liquidity_index))
     }
 
-    /// Find or add liquidity by borrow reserve
-    pub fn find_or_add_liquidity_to_borrows(
-        &mut self,
-        borrow_reserve: Pubkey,
-        cumulative_borrow_rate_wads: Decimal,
-    ) -> Result<&mut ObligationLiquidity, ProgramError> {
-        if let Some(liquidity_index) = self._find_liquidity_index_in_borrows(borrow_reserve) {
-            return Ok(&mut self.borrows[liquidity_index]);
-        }
-        if self.deposits.len() + self.borrows.len() >= MAX_OBLIGATION_RESERVES {
-            msg!(
-                "Obligation cannot have more than {} deposits and borrows combined",
-                MAX_OBLIGATION_RESERVES
-            );
-            return Err(LendingError::ObligationReserveLimit.into());
-        }
-        let liquidity = ObligationLiquidity::new(borrow_reserve, cumulative_borrow_rate_wads);
-        self.borrows.push(liquidity);
-        Ok(self.borrows.last_mut().unwrap())
-    }
-
     fn _find_liquidity_index_in_borrows(&self, borrow_reserve: Pubkey) -> Option<usize> {
-        self.borrows
-            .iter()
-            .position(|liquidity| liquidity.borrow_reserve == borrow_reserve)
+        self.borrows.iter().position(|liquidity| liquidity.borrow_reserve == borrow_reserve)
     }
 }
 
@@ -331,24 +263,6 @@ impl ObligationCollateral {
             attributed_borrow_value: Decimal::zero(),
         }
     }
-
-    /// Increase deposited collateral
-    pub fn deposit(&mut self, collateral_amount: u64) -> ProgramResult {
-        self.deposited_amount = self
-            .deposited_amount
-            .checked_add(collateral_amount)
-            .ok_or(LendingError::MathOverflow)?;
-        Ok(())
-    }
-
-    /// Decrease deposited collateral
-    pub fn withdraw(&mut self, collateral_amount: u64) -> ProgramResult {
-        self.deposited_amount = self
-            .deposited_amount
-            .checked_sub(collateral_amount)
-            .ok_or(LendingError::MathOverflow)?;
-        Ok(())
-    }
 }
 
 /// Obligation liquidity state
@@ -373,41 +287,6 @@ impl ObligationLiquidity {
             borrowed_amount_wads: Decimal::zero(),
             market_value: Decimal::zero(),
         }
-    }
-
-    /// Decrease borrowed liquidity
-    pub fn repay(&mut self, settle_amount: Decimal) -> ProgramResult {
-        self.borrowed_amount_wads = self.borrowed_amount_wads.try_sub(settle_amount)?;
-        Ok(())
-    }
-
-    /// Increase borrowed liquidity
-    pub fn borrow(&mut self, borrow_amount: Decimal) -> ProgramResult {
-        self.borrowed_amount_wads = self.borrowed_amount_wads.try_add(borrow_amount)?;
-        Ok(())
-    }
-
-    /// Accrue interest
-    pub fn accrue_interest(&mut self, cumulative_borrow_rate_wads: Decimal) -> ProgramResult {
-        match cumulative_borrow_rate_wads.cmp(&self.cumulative_borrow_rate_wads) {
-            Ordering::Less => {
-                msg!("Interest rate cannot be negative");
-                return Err(LendingError::NegativeInterestRate.into());
-            }
-            Ordering::Equal => {}
-            Ordering::Greater => {
-                let compounded_interest_rate: Rate = cumulative_borrow_rate_wads
-                    .try_div(self.cumulative_borrow_rate_wads)?
-                    .try_into()?;
-
-                self.borrowed_amount_wads = self
-                    .borrowed_amount_wads
-                    .try_mul(compounded_interest_rate)?;
-                self.cumulative_borrow_rate_wads = cumulative_borrow_rate_wads;
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -474,10 +353,7 @@ impl Pack for Obligation {
         pack_decimal(self.allowed_borrow_value, allowed_borrow_value);
         pack_decimal(self.unhealthy_borrow_value, unhealthy_borrow_value);
         pack_bool(self.borrowing_isolated_asset, borrowing_isolated_asset);
-        pack_decimal(
-            self.super_unhealthy_borrow_value,
-            super_unhealthy_borrow_value,
-        );
+        pack_decimal(self.super_unhealthy_borrow_value, super_unhealthy_borrow_value);
         pack_decimal(self.unweighted_borrowed_value, unweighted_borrowed_value);
         pack_bool(self.closeable, closeable);
 
@@ -516,10 +392,7 @@ impl Pack for Obligation {
                 _padding_borrow,
             ) = mut_array_refs![borrows_flat, PUBKEY_BYTES, 16, 16, 16, 32];
             borrow_reserve.copy_from_slice(liquidity.borrow_reserve.as_ref());
-            pack_decimal(
-                liquidity.cumulative_borrow_rate_wads,
-                cumulative_borrow_rate_wads,
-            );
+            pack_decimal(liquidity.cumulative_borrow_rate_wads, cumulative_borrow_rate_wads);
             pack_decimal(liquidity.borrowed_amount_wads, borrowed_amount_wads);
             pack_decimal(liquidity.market_value, market_value);
             offset += OBLIGATION_LIQUIDITY_LEN;
@@ -646,12 +519,10 @@ impl Pack for Obligation {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::save::{math::{TryAdd, WAD}, models::{ReserveCollateral, ReserveConfig, ReserveLiquidity}};
+    use crate::save::models::{ReserveCollateral, ReserveConfig, ReserveLiquidity};
     use proptest::prelude::*;
     use rand::Rng;
     use solana_program::native_token::LAMPORTS_PER_SOL;
-
-    const MAX_COMPOUNDED_INTEREST: u64 = 100; // 10,000%
 
     fn rand_decimal() -> Decimal {
         Decimal::from_scaled_val(rand::thread_rng().gen())
@@ -663,10 +534,7 @@ mod test {
         for _ in 0..100 {
             let obligation = Obligation {
                 version: PROGRAM_VERSION,
-                last_update: LastUpdate {
-                    slot: rng.gen(),
-                    stale: rng.gen(),
-                },
+                last_update: LastUpdate { slot: rng.gen(), stale: rng.gen() },
                 lending_market: Pubkey::new_unique(),
                 owner: Pubkey::new_unique(),
                 deposits: vec![ObligationCollateral {
@@ -700,130 +568,6 @@ mod test {
     }
 
     #[test]
-    fn obligation_accrue_interest_failure() {
-        assert_eq!(
-            ObligationLiquidity {
-                cumulative_borrow_rate_wads: Decimal::zero(),
-                ..ObligationLiquidity::default()
-            }
-            .accrue_interest(Decimal::one()),
-            Err(LendingError::MathOverflow.into())
-        );
-
-        assert_eq!(
-            ObligationLiquidity {
-                cumulative_borrow_rate_wads: Decimal::from(2u64),
-                ..ObligationLiquidity::default()
-            }
-            .accrue_interest(Decimal::one()),
-            Err(LendingError::NegativeInterestRate.into())
-        );
-
-        assert_eq!(
-            ObligationLiquidity {
-                cumulative_borrow_rate_wads: Decimal::one(),
-                borrowed_amount_wads: Decimal::from(u64::MAX),
-                ..ObligationLiquidity::default()
-            }
-            .accrue_interest(Decimal::from(10 * MAX_COMPOUNDED_INTEREST)),
-            Err(LendingError::MathOverflow.into())
-        );
-    }
-
-    // Creates rates (r1, r2) where 0 < r1 <= r2 <= 100*r1
-    prop_compose! {
-        fn cumulative_rates()(rate in 1..=u128::MAX)(
-            current_rate in Just(rate),
-            max_new_rate in rate..=rate.saturating_mul(MAX_COMPOUNDED_INTEREST as u128),
-        ) -> (u128, u128) {
-            (current_rate, max_new_rate)
-        }
-    }
-
-    const MAX_BORROWED: u128 = u64::MAX as u128 * WAD as u128;
-
-    // Creates liquidity amounts (repay, borrow) where repay < borrow
-    prop_compose! {
-        fn repay_partial_amounts()(amount in 1..=u64::MAX)(
-            repay_amount in Just(WAD as u128 * amount as u128),
-            borrowed_amount in (WAD as u128 * amount as u128 + 1)..=MAX_BORROWED,
-        ) -> (u128, u128) {
-            (repay_amount, borrowed_amount)
-        }
-    }
-
-    // Creates liquidity amounts (repay, borrow) where repay >= borrow
-    prop_compose! {
-        fn repay_full_amounts()(amount in 1..=u64::MAX)(
-            repay_amount in Just(WAD as u128 * amount as u128),
-        ) -> (u128, u128) {
-            (repay_amount, repay_amount)
-        }
-    }
-
-    proptest! {
-        #[test]
-        fn repay_partial(
-            (repay_amount, borrowed_amount) in repay_partial_amounts(),
-        ) {
-            let borrowed_amount_wads = Decimal::from_scaled_val(borrowed_amount);
-            let repay_amount_wads = Decimal::from_scaled_val(repay_amount);
-            let mut obligation = Obligation {
-                borrows: vec![ObligationLiquidity {
-                    borrowed_amount_wads,
-                    ..ObligationLiquidity::default()
-                }],
-                ..Obligation::default()
-            };
-
-            obligation.repay(repay_amount_wads, 0)?;
-            assert!(obligation.borrows[0].borrowed_amount_wads < borrowed_amount_wads);
-            assert!(obligation.borrows[0].borrowed_amount_wads > Decimal::zero());
-        }
-
-        #[test]
-        fn repay_full(
-            (repay_amount, borrowed_amount) in repay_full_amounts(),
-        ) {
-            let borrowed_amount_wads = Decimal::from_scaled_val(borrowed_amount);
-            let repay_amount_wads = Decimal::from_scaled_val(repay_amount);
-            let mut obligation = Obligation {
-                borrows: vec![ObligationLiquidity {
-                    borrowed_amount_wads,
-                    ..ObligationLiquidity::default()
-                }],
-                ..Obligation::default()
-            };
-
-            obligation.repay(repay_amount_wads, 0)?;
-            assert_eq!(obligation.borrows.len(), 0);
-        }
-
-        #[test]
-        fn accrue_interest(
-            (current_borrow_rate, new_borrow_rate) in cumulative_rates(),
-            borrowed_amount in 0..=u64::MAX,
-        ) {
-            let cumulative_borrow_rate_wads = Decimal::one().try_add(Decimal::from_scaled_val(current_borrow_rate))?;
-            let borrowed_amount_wads = Decimal::from(borrowed_amount);
-            let mut liquidity = ObligationLiquidity {
-                cumulative_borrow_rate_wads,
-                borrowed_amount_wads,
-                ..ObligationLiquidity::default()
-            };
-
-            let next_cumulative_borrow_rate = Decimal::one().try_add(Decimal::from_scaled_val(new_borrow_rate))?;
-            liquidity.accrue_interest(next_cumulative_borrow_rate)?;
-
-            if next_cumulative_borrow_rate > cumulative_borrow_rate_wads {
-                assert!(liquidity.borrowed_amount_wads > borrowed_amount_wads);
-            } else {
-                assert!(liquidity.borrowed_amount_wads == borrowed_amount_wads);
-            }
-        }
-    }
-
-    #[test]
     fn max_liquidation_amount_normal() {
         let obligation_liquidity = ObligationLiquidity {
             borrowed_amount_wads: Decimal::from(50u64),
@@ -845,9 +589,7 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            obligation
-                .max_liquidation_amount(&obligation_liquidity)
-                .unwrap(),
+            obligation.max_liquidation_amount(&obligation_liquidity).unwrap(),
             expected_collateral
         );
     }
@@ -868,9 +610,7 @@ mod test {
         };
 
         assert_eq!(
-            obligation
-                .max_liquidation_amount(&obligation_liquidity)
-                .unwrap(),
+            obligation.max_liquidation_amount(&obligation_liquidity).unwrap(),
             Decimal::from(100u64)
         );
     }
@@ -891,9 +631,7 @@ mod test {
         };
 
         assert_eq!(
-            obligation
-                .max_liquidation_amount(&obligation_liquidity)
-                .unwrap(),
+            obligation.max_liquidation_amount(&obligation_liquidity).unwrap(),
             Decimal::from(MAX_LIQUIDATABLE_VALUE_AT_ONCE)
         );
     }
@@ -925,10 +663,7 @@ mod test {
                     ..Obligation::default()
                 },
                 reserve: Reserve {
-                    config: ReserveConfig {
-                        loan_to_value_ratio: 50,
-                        ..ReserveConfig::default()
-                    },
+                    config: ReserveConfig { loan_to_value_ratio: 50, ..ReserveConfig::default() },
                     ..Reserve::default()
                 },
                 expected_max_withdraw_amount: 0,
@@ -951,10 +686,7 @@ mod test {
                 },
 
                 reserve: Reserve {
-                    config: ReserveConfig {
-                        loan_to_value_ratio: 50,
-                        ..ReserveConfig::default()
-                    },
+                    config: ReserveConfig { loan_to_value_ratio: 50, ..ReserveConfig::default() },
                     liquidity: ReserveLiquidity {
                         available_amount: 100 * LAMPORTS_PER_SOL,
                         borrowed_amount_wads: Decimal::zero(),
@@ -998,10 +730,7 @@ mod test {
                 },
 
                 reserve: Reserve {
-                    config: ReserveConfig {
-                        loan_to_value_ratio: 50,
-                        ..ReserveConfig::default()
-                    },
+                    config: ReserveConfig { loan_to_value_ratio: 50, ..ReserveConfig::default() },
                     liquidity: ReserveLiquidity {
                         available_amount: 100 * LAMPORTS_PER_SOL,
                         borrowed_amount_wads: Decimal::zero(),
@@ -1046,10 +775,7 @@ mod test {
                 },
 
                 reserve: Reserve {
-                    config: ReserveConfig {
-                        loan_to_value_ratio: 50,
-                        ..ReserveConfig::default()
-                    },
+                    config: ReserveConfig { loan_to_value_ratio: 50, ..ReserveConfig::default() },
                     liquidity: ReserveLiquidity {
                         available_amount: 100 * LAMPORTS_PER_SOL,
                         borrowed_amount_wads: Decimal::zero(),
@@ -1080,10 +806,7 @@ mod test {
                 },
 
                 reserve: Reserve {
-                    config: ReserveConfig {
-                        loan_to_value_ratio: 50,
-                        ..ReserveConfig::default()
-                    },
+                    config: ReserveConfig { loan_to_value_ratio: 50, ..ReserveConfig::default() },
                     ..Reserve::default()
                 },
                 expected_max_withdraw_amount: 100 * LAMPORTS_PER_SOL,

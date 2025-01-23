@@ -1,9 +1,7 @@
-use solana_program::msg;
 use solana_program::program_pack::IsInitialized;
 use solana_program::{program_error::ProgramError, slot_history::Slot};
 
-use crate::save::error::LendingError;
-use crate::save::math::{Decimal, TryAdd, TryDiv, TryMul, TrySub};
+use crate::save::math::Decimal;
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use solana_program::program_pack::{Pack, Sealed};
 
@@ -50,92 +48,6 @@ impl RateLimiter {
             prev_qty: Decimal::zero(),
             window_start: slot_start,
             cur_qty: Decimal::zero(),
-        }
-    }
-
-    fn _update(&mut self, cur_slot: u64) -> Result<(), ProgramError> {
-        if cur_slot < self.window_start {
-            msg!("Current slot is less than window start, which is impossible");
-            return Err(LendingError::InvalidAccountInput.into());
-        }
-
-        // floor wrt window duration
-        let cur_slot_start = cur_slot / self.config.window_duration * self.config.window_duration;
-
-        // update prev window, current window
-        match cur_slot_start.cmp(&(self.window_start + self.config.window_duration)) {
-            // |<-prev window->|<-cur window (cur_slot is in here)->|
-            std::cmp::Ordering::Less => (),
-
-            // |<-prev window->|<-cur window->| (cur_slot is in here) |
-            std::cmp::Ordering::Equal => {
-                self.prev_qty = self.cur_qty;
-                self.window_start = cur_slot_start;
-                self.cur_qty = Decimal::zero();
-            }
-
-            // |<-prev window->|<-cur window->|<-cur window + 1->| ... | (cur_slot is in here) |
-            std::cmp::Ordering::Greater => {
-                self.prev_qty = Decimal::zero();
-                self.window_start = cur_slot_start;
-                self.cur_qty = Decimal::zero();
-            }
-        };
-
-        Ok(())
-    }
-
-    /// Calculate current outflow. Must only be called after ._update()!
-    fn current_outflow(&self, cur_slot: u64) -> Result<Decimal, ProgramError> {
-        if self.config.window_duration == 0 {
-            msg!("Window duration cannot be 0");
-            return Err(LendingError::InvalidAccountInput.into());
-        }
-
-        // assume the prev_window's outflow is even distributed across the window
-        // this isn't true, but it's a good enough approximation
-        let prev_weight = Decimal::from(self.config.window_duration)
-            .try_sub(Decimal::from(cur_slot - self.window_start + 1))?
-            .try_div(self.config.window_duration)?;
-
-        prev_weight.try_mul(self.prev_qty)?.try_add(self.cur_qty)
-    }
-
-    /// Calculate remaining outflow for the current window
-    pub fn remaining_outflow(&mut self, cur_slot: u64) -> Result<Decimal, ProgramError> {
-        // rate limiter is disabled if window duration == 0. this is here because we don't want to
-        // brick borrows/withdraws in permissionless pools on program upgrade.
-        if self.config.window_duration == 0 {
-            return Ok(Decimal::from(u64::MAX));
-        }
-
-        self._update(cur_slot)?;
-
-        let cur_outflow = self.current_outflow(cur_slot)?;
-        if cur_outflow > Decimal::from(self.config.max_outflow) {
-            return Ok(Decimal::zero());
-        }
-
-        let diff = Decimal::from(self.config.max_outflow).try_sub(cur_outflow)?;
-        Ok(diff)
-    }
-
-    /// update rate limiter with new quantity. errors if rate limit has been reached
-    pub fn update(&mut self, cur_slot: u64, qty: Decimal) -> Result<(), ProgramError> {
-        // rate limiter is disabled if window duration == 0. this is here because we don't want to
-        // brick borrows/withdraws in permissionless pools on program upgrade.
-        if self.config.window_duration == 0 {
-            return Ok(());
-        }
-
-        self._update(cur_slot)?;
-
-        let cur_outflow = self.current_outflow(cur_slot)?;
-        if cur_outflow.try_add(qty)? > Decimal::from(self.config.max_outflow) {
-            Err(LendingError::OutflowRateLimitExceeded.into())
-        } else {
-            self.cur_qty = self.cur_qty.try_add(qty)?;
-            Ok(())
         }
     }
 }
@@ -211,72 +123,5 @@ pub fn rand_rate_limiter() -> RateLimiter {
         prev_qty: rand_decimal(),
         window_start: rng.gen(),
         cur_qty: rand_decimal(),
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_rate_limiter() {
-        let mut rate_limiter =
-            RateLimiter::new(RateLimiterConfig { window_duration: 10, max_outflow: 100 }, 10);
-
-        assert_eq!(
-            rate_limiter.update(9, Decimal::from(1u64)),
-            Err(LendingError::InvalidAccountInput.into())
-        );
-
-        // case 1: no prev window, all quantity is taken up in first slot
-        assert_eq!(
-            rate_limiter.update(10, Decimal::from(101u64)),
-            Err(LendingError::OutflowRateLimitExceeded.into())
-        );
-        assert_eq!(rate_limiter.remaining_outflow(10), Ok(Decimal::from(100u64)));
-
-        assert_eq!(rate_limiter.update(10, Decimal::from(100u64)), Ok(()));
-        assert_eq!(rate_limiter.remaining_outflow(10), Ok(Decimal::from(0u64)));
-        for i in 11..20 {
-            assert_eq!(
-                rate_limiter.update(i, Decimal::from(1u64)),
-                Err(LendingError::OutflowRateLimitExceeded.into())
-            );
-            assert_eq!(rate_limiter.remaining_outflow(i), Ok(Decimal::from(0u64)));
-        }
-
-        // case 2: prev window qty affects cur window's allowed qty. exactly 10 qty frees up every
-        // slot.
-        for i in 20..30 {
-            assert_eq!(
-                rate_limiter.update(i, Decimal::from(11u64)),
-                Err(LendingError::OutflowRateLimitExceeded.into())
-            );
-
-            assert_eq!(rate_limiter.remaining_outflow(i), Ok(Decimal::from(10u64)));
-            assert_eq!(rate_limiter.update(i, Decimal::from(10u64)), Ok(()));
-            assert_eq!(rate_limiter.remaining_outflow(i), Ok(Decimal::from(0u64)));
-
-            assert_eq!(
-                rate_limiter.update(i, Decimal::from(1u64)),
-                Err(LendingError::OutflowRateLimitExceeded.into())
-            );
-        }
-
-        // case 3: new slot is so far ahead, prev window is dropped
-        assert_eq!(rate_limiter.remaining_outflow(100), Ok(Decimal::from(100u64)));
-        assert_eq!(rate_limiter.update(100, Decimal::from(10u64)), Ok(()));
-        for i in 101..109 {
-            assert_eq!(
-                rate_limiter.remaining_outflow(i),
-                Ok(Decimal::from(100u64 - 10 * (i - 100)))
-            );
-            assert_eq!(rate_limiter.update(i, Decimal::from(10u64)), Ok(()));
-            assert_eq!(
-                rate_limiter.remaining_outflow(i),
-                Ok(Decimal::from(90u64 - 10 * (i - 100)))
-            );
-        }
-        println!("{:#?}", rate_limiter);
     }
 }

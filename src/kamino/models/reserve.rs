@@ -12,11 +12,8 @@ use solana_program::{clock::Slot, pubkey::Pubkey};
 
 use crate::kamino::{
     models::{
-        last_update::LastUpdate,
-        lending_result::LendingResult,
-        referral::ReferrerTokenState,
-        token_info::TokenInfo,
-        types::{CalculateBorrowResult, CalculateRepayResult},
+        last_update::LastUpdate, lending_result::LendingResult, referral::ReferrerTokenState,
+        token_info::TokenInfo, types::CalculateBorrowResult,
     },
     utils::{
         borrow_rate_curve::BorrowRateCurve,
@@ -281,22 +278,6 @@ impl Reserve {
 
             Ok(CalculateBorrowResult { borrow_amount_f, receive_amount, borrow_fee, referrer_fee })
         }
-    }
-
-    pub fn calculate_repay(
-        &self,
-        amount_to_repay: u64,
-        borrowed_amount: Fraction,
-    ) -> LendingResult<CalculateRepayResult> {
-        let settle_amount_f = if amount_to_repay == u64::MAX {
-            borrowed_amount
-        } else {
-            let amount_to_repay_f = Fraction::from(amount_to_repay);
-            min(amount_to_repay_f, borrowed_amount)
-        };
-        let repay_amount = settle_amount_f.to_ceil();
-
-        Ok(CalculateRepayResult { settle_amount_f, repay_amount })
     }
 
     pub fn calculate_redeem_fees(&self) -> Result<u64, LendingError> {
