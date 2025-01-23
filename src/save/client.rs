@@ -86,7 +86,7 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
 
         let reserves: Vec<Reserve> = reserve_accounts
             .into_iter()
-            .filter_map(|(_, account)| Reserve::unpack(&account.data).map(|reserve| reserve).ok())
+            .filter_map(|(_, account)| Reserve::unpack(&account.data).ok())
             .collect();
 
         Ok(reserves)
