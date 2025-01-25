@@ -1439,15 +1439,20 @@ dependencies = [
 name = "drift"
 version = "0.1.0"
 dependencies = [
+ "anchor-client",
  "anchor-lang",
  "bytemuck",
- "proc-macro2",
- "quote",
+ "fixed",
+ "fixed-macro",
+ "num-traits",
+ "prettytable-rs",
  "serde",
  "serde_json",
- "sha2 0.10.8",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-program 2.1.9",
  "solana-sdk",
- "syn 2.0.96",
+ "uint 0.9.5",
 ]
 
 [[package]]
@@ -2489,7 +2494,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "type-layout",
- "uint",
+ "uint 0.10.0",
 ]
 
 [[package]]
@@ -5706,6 +5711,18 @@ name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
+name = "uint"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76f64bba2c53b04fcab63c01a7d7427eadc821e3bc48c34dc9ba29c501164b52"
+dependencies = [
+ "byteorder",
+ "crunchy",
+ "hex",
+ "static_assertions",
+]
 
 [[package]]
 name = "uint"

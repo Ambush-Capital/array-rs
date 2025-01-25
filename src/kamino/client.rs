@@ -8,8 +8,12 @@ use solana_client::{
 use solana_sdk::{account::Account, pubkey::Pubkey, signer::Signer};
 use std::{ops::Deref, str::FromStr};
 
-use crate::kamino::models::{lending_market::LendingMarket, reserve::Reserve};
-use crate::kamino::utils::consts::RESERVE_SIZE;
+use crate::kamino::{models::obligation::Obligation, utils::consts::RESERVE_SIZE};
+use crate::kamino::{
+    models::{lending_market::LendingMarket, reserve::Reserve},
+    utils::consts::OBLIGATION_SIZE,
+    utils::fraction::Fraction,
+};
 
 type KaminoMarkets = (Pubkey, LendingMarket, Vec<(Pubkey, Reserve)>);
 
@@ -143,5 +147,61 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
                 },
             )
             .map_err(Box::new)
+    }
+
+    pub fn get_obligations(&self, owner_pubkey: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let owner = Pubkey::from_str(owner_pubkey)?;
+
+        let filters = vec![
+            rpc_filter::RpcFilterType::DataSize(OBLIGATION_SIZE as u64 + 8),
+            rpc_filter::RpcFilterType::Memcmp(Memcmp::new(
+                8 + 8 + 16 + 32, // Offset for owner field in Obligation struct
+                MemcmpEncodedBytes::Base58(owner.to_string()),
+            )),
+        ];
+
+        let obligations = self.program.rpc().get_program_accounts_with_config(
+            &self.kamino_program_id,
+            RpcProgramAccountsConfig {
+                filters: Some(filters),
+                account_config: solana_client::rpc_config::RpcAccountInfoConfig {
+                    encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )?;
+
+        if obligations.is_empty() {
+            println!("No current obligations found for {}", owner_pubkey);
+            return Ok(());
+        }
+
+        println!("\nObligations for {}:", owner_pubkey);
+        for (pubkey, account) in obligations {
+            let obligation: Obligation = Obligation::try_from_slice(&account.data[8..])?;
+
+            println!("\nObligation address: {}", pubkey);
+            println!(
+                "Deposited value: {:.3}",
+                Fraction::from_bits(obligation.deposited_value_sf).to_num::<f64>()
+            );
+            println!(
+                "Borrowed value: {:.3}",
+                Fraction::from_bits(obligation.borrowed_assets_market_value_sf).to_num::<f64>()
+            );
+            println!(
+                "Allowed borrow value: {:.3}",
+                Fraction::from_bits(obligation.allowed_borrow_value_sf).to_num::<f64>()
+            );
+            println!(
+                "Unhealthy borrow value: {:.3}",
+                Fraction::from_bits(obligation.unhealthy_borrow_value_sf).to_num::<f64>()
+            );
+            println!("Has debt: {}", obligation.has_debt != 0);
+            println!("Borrowing disabled: {}", obligation.borrowing_disabled != 0);
+        }
+
+        Ok(())
     }
 }

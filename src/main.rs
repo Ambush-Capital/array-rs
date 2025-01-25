@@ -1,17 +1,9 @@
 #![allow(clippy::empty_line_after_doc_comments)]
-use std::str::FromStr;
 
 use anchor_client::{Client, Cluster};
-use anchor_lang::AccountDeserialize;
-use drift::models::idl::accounts::SpotMarket;
-use solana_account_decoder::UiAccountEncoding;
-use solana_client::{
-    rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
-    rpc_filter::{Memcmp, RpcFilterType},
-};
-use solana_sdk::{
-    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::read_keypair_file,
-};
+use drift::client::DriftClient;
+use kamino::client::KaminoClient;
+use solana_sdk::{commitment_config::CommitmentConfig, signature::read_keypair_file};
 
 pub mod aggregator;
 pub mod kamino;
@@ -38,47 +30,63 @@ fn main() {
         CommitmentConfig::confirmed(),
     );
 
-    let program = client
-        .program(Pubkey::from_str("dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH").unwrap())
-        .unwrap();
+    // let program = client
+    //     .program(Pubkey::from_str("dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH").unwrap())
+    //     .unwrap();
 
-    let filters = vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-        0,
-        [100, 177, 8, 107, 168, 65, 65, 39].to_vec(),
-    ))];
+    // let filters = vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+    //     0,
+    //     [100, 177, 8, 107, 168, 65, 65, 39].to_vec(),
+    // ))];
 
-    let account_config = RpcAccountInfoConfig {
-        commitment: Some(program.rpc().commitment()),
-        encoding: Some(UiAccountEncoding::Base64Zstd),
-        ..RpcAccountInfoConfig::default()
-    };
+    // let account_config = RpcAccountInfoConfig {
+    //     commitment: Some(program.rpc().commitment()),
+    //     encoding: Some(UiAccountEncoding::Base64Zstd),
+    //     ..RpcAccountInfoConfig::default()
+    // };
 
-    let gpa_config = RpcProgramAccountsConfig {
-        filters: Some(filters),
-        account_config: account_config.clone(),
-        with_context: Some(true),
-    };
+    // let gpa_config = RpcProgramAccountsConfig {
+    //     filters: Some(filters),
+    //     account_config: account_config.clone(),
+    //     with_context: Some(true),
+    // };
 
-    let accounts = program.rpc().get_program_accounts_with_config(&program.id(), gpa_config);
+    // let accounts = program.rpc().get_program_accounts_with_config(&program.id(), gpa_config);
 
-    match accounts {
-        Ok(spot_market_accounts) => {
-            for (pubkey, account) in spot_market_accounts {
-                match SpotMarket::try_deserialize(&mut &account.data[..]) {
-                    Ok(spot_market) => {
-                        println!(
-                            "Spot Market {} - Name: {:?}, Pubkey Length: {}, Market Index: {}",
-                            pubkey,
-                            pubkey.to_string().len(),
-                            String::from_utf8_lossy(&spot_market.name).trim_matches(char::from(0)),
-                            spot_market.market_index
-                        );
-                    }
-                    Err(e) => println!("Failed to deserialize spot market {}: {}", pubkey, e),
-                }
-            }
+    // match accounts {
+    //     Ok(spot_market_accounts) => {
+    //         for (pubkey, account) in spot_market_accounts {
+    //             match SpotMarket::try_deserialize(&mut &account.data[..]) {
+    //                 Ok(spot_market) => {
+    //                     println!(
+    //                         "Spot Market {} - Name: {:?}, Pubkey Length: {}, Market Index: {}",
+    //                         pubkey,
+    //                         pubkey.to_string().len(),
+    //                         String::from_utf8_lossy(&spot_market.name).trim_matches(char::from(0)),
+    //                         spot_market.market_index
+    //                     );
+    //                 }
+    //                 Err(e) => println!("Failed to deserialize spot market {}: {}", pubkey, e),
+    //             }
+    //         }
+    //     }
+    //     Err(e) => println!("Failed to fetch accounts: {}", e),
+    // }
+
+    let kamino_client = KaminoClient::new(&client);
+
+    match kamino_client.get_obligations("AmrekAq6s3n2frDi67WUaZnbPkBb1h4xaid1Y8QLMAYN") {
+        Ok(_) => (),
+        Err(e) => println!("Failed to fetch obligations: {}", e),
+    }
+
+    let mut drift_client = DriftClient::new(&client);
+    match drift_client.load_spot_markets() {
+        Ok(_) => {
+            println!("\nDrift Spot Markets:");
+            drift_client.print_spot_markets();
         }
-        Err(e) => println!("Failed to fetch accounts: {}", e),
+        Err(e) => println!("Failed to load Drift spot markets: {}", e),
     }
 
     // let mut aggregator = LendingMarketAggregator::new();
