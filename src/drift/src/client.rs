@@ -1,15 +1,10 @@
-use crate::casting::Cast;
-use crate::error::{DriftResult, ErrorCode};
-use crate::math::constants::SPOT_UTILIZATION_PRECISION;
-use crate::math::safe_math::SafeMath;
-use crate::models::idl::types::SpotBalanceType;
+use crate::error::ErrorCode;
 use anchor_client::{Client, Program};
 use anchor_lang::AccountDeserialize;
 use prettytable::{row, Table};
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use std::ops::Mul;
 use std::{ops::Deref, str::FromStr};
 
 use crate::models::idl::accounts::SpotMarket;
@@ -59,6 +54,7 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
                 SpotMarket::try_deserialize(&mut &account.data[..])
                     .map(|market| (pubkey, market))
                     .ok()
+                    .filter(|(_, market)| market.is_active())
             })
             .collect();
 
@@ -76,14 +72,12 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
             "Asset Tier",
             "Total Deposits",
             "Total Borrows",
+            "Borrow Rate",
+            "Utilization",
             "Market Address"
         ]);
 
         for (pubkey, market) in &self.spot_markets {
-            let precision_decrease = 10_u128.pow(19_u32.checked_sub(market.decimals).unwrap_or(0));
-
-            let utilization = calculate_spot_market_utilization(&market).unwrap_or(100);
-
             table.add_row(row![
                 market.market_index,
                 String::from_utf8_lossy(&market.name).trim_matches(char::from(0)),
@@ -91,101 +85,16 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
                 market.mint,
                 format!("{:?}", market.status),
                 format!("{:?}", market.asset_tier),
-                market.deposit_balance.mul(market.cumulative_deposit_interest) / precision_decrease,
-                market.borrow_balance.mul(market.cumulative_borrow_interest) / precision_decrease,
-                calculate_borrow_rate(&market, utilization).unwrap_or(10),
-                utilization,
+                market.get_deposits().unwrap_or(0),
+                market.get_borrows().unwrap_or(0),
+                market.get_borrow_rate().unwrap_or(0),
+                market.get_utilization().unwrap_or(0),
                 pubkey.to_string()
             ]);
         }
 
         table.printstd();
     }
-}
-
-pub fn calculate_borrow_rate(spot_market: &SpotMarket, utilization: u128) -> DriftResult<u128> {
-    let borrow_rate = if utilization > spot_market.optimal_utilization.cast::<u128>()? {
-        let surplus_utilization = utilization.safe_sub(spot_market.optimal_utilization.cast()?)?;
-
-        let borrow_rate_slope = spot_market
-            .max_borrow_rate
-            .cast::<u128>()?
-            .safe_sub(spot_market.optimal_borrow_rate.cast()?)?
-            .safe_mul(SPOT_UTILIZATION_PRECISION)?
-            .safe_div(
-                SPOT_UTILIZATION_PRECISION.safe_sub(spot_market.optimal_utilization.cast()?)?,
-            )?;
-
-        spot_market.optimal_borrow_rate.cast::<u128>()?.safe_add(
-            surplus_utilization
-                .safe_mul(borrow_rate_slope)?
-                .safe_div(SPOT_UTILIZATION_PRECISION)?,
-        )?
-    } else {
-        let borrow_rate_slope = spot_market
-            .optimal_borrow_rate
-            .cast::<u128>()?
-            .safe_mul(SPOT_UTILIZATION_PRECISION)?
-            .safe_div(spot_market.optimal_utilization.cast()?)?;
-
-        utilization.safe_mul(borrow_rate_slope)?.safe_div(SPOT_UTILIZATION_PRECISION)?
-    }
-    .max(spot_market.get_min_borrow_rate()?.cast()?);
-
-    Ok(borrow_rate)
-}
-
-pub fn calculate_spot_market_utilization(spot_market: &SpotMarket) -> DriftResult<u128> {
-    let deposit_token_amount =
-        get_token_amount(spot_market.deposit_balance, spot_market, &SpotBalanceType::Deposit)?;
-    let borrow_token_amount =
-        get_token_amount(spot_market.borrow_balance, spot_market, &SpotBalanceType::Borrow)?;
-    let utilization = calculate_utilization(deposit_token_amount, borrow_token_amount)?;
-
-    Ok(utilization)
-}
-
-pub fn calculate_utilization(
-    deposit_token_amount: u128,
-    borrow_token_amount: u128,
-) -> DriftResult<u128> {
-    let utilization = borrow_token_amount
-        .safe_mul(SPOT_UTILIZATION_PRECISION)?
-        .checked_div(deposit_token_amount)
-        .unwrap_or({
-            if deposit_token_amount == 0 && borrow_token_amount == 0 {
-                0_u128
-            } else {
-                // if there are borrows without deposits, default to maximum utilization rate
-                SPOT_UTILIZATION_PRECISION
-            }
-        });
-
-    Ok(utilization)
-}
-
-pub fn get_token_amount(
-    balance: u128,
-    spot_market: &SpotMarket,
-    balance_type: &SpotBalanceType,
-) -> DriftResult<u128> {
-    let precision_decrease = 10_u128.pow(19_u32.safe_sub(spot_market.decimals)?);
-
-    let cumulative_interest = match balance_type {
-        SpotBalanceType::Deposit => spot_market.cumulative_deposit_interest,
-        SpotBalanceType::Borrow => spot_market.cumulative_borrow_interest,
-    };
-
-    let token_amount = match balance_type {
-        SpotBalanceType::Deposit => {
-            balance.safe_mul(cumulative_interest)?.safe_div(precision_decrease)?
-        }
-        SpotBalanceType::Borrow => {
-            balance.safe_mul(cumulative_interest)?.safe_div_ceil(precision_decrease)?
-        }
-    };
-
-    Ok(token_amount)
 }
 
 impl From<Box<dyn std::error::Error>> for ErrorCode {
