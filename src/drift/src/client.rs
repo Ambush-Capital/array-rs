@@ -91,10 +91,8 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
                 market.mint,
                 format!("{:?}", market.status),
                 format!("{:?}", market.asset_tier),
-                market.deposit_balance.as_u128().mul(market.cumulative_deposit_interest.as_u128())
-                    / precision_decrease,
-                market.borrow_balance.as_u128().mul(market.cumulative_borrow_interest.as_u128())
-                    / precision_decrease,
+                market.deposit_balance.mul(market.cumulative_deposit_interest) / precision_decrease,
+                market.borrow_balance.mul(market.cumulative_borrow_interest) / precision_decrease,
                 calculate_borrow_rate(&market, utilization).unwrap_or(10),
                 utilization,
                 pubkey.to_string()
@@ -138,16 +136,10 @@ pub fn calculate_borrow_rate(spot_market: &SpotMarket, utilization: u128) -> Dri
 }
 
 pub fn calculate_spot_market_utilization(spot_market: &SpotMarket) -> DriftResult<u128> {
-    let deposit_token_amount = get_token_amount(
-        spot_market.deposit_balance.as_u128(),
-        spot_market,
-        &SpotBalanceType::Deposit,
-    )?;
-    let borrow_token_amount = get_token_amount(
-        spot_market.borrow_balance.as_u128(),
-        spot_market,
-        &SpotBalanceType::Borrow,
-    )?;
+    let deposit_token_amount =
+        get_token_amount(spot_market.deposit_balance, spot_market, &SpotBalanceType::Deposit)?;
+    let borrow_token_amount =
+        get_token_amount(spot_market.borrow_balance, spot_market, &SpotBalanceType::Borrow)?;
     let utilization = calculate_utilization(deposit_token_amount, borrow_token_amount)?;
 
     Ok(utilization)
@@ -186,10 +178,10 @@ pub fn get_token_amount(
 
     let token_amount = match balance_type {
         SpotBalanceType::Deposit => {
-            balance.safe_mul(cumulative_interest.as_u128())?.safe_div(precision_decrease)?
+            balance.safe_mul(cumulative_interest)?.safe_div(precision_decrease)?
         }
         SpotBalanceType::Borrow => {
-            balance.safe_mul(cumulative_interest.as_u128())?.safe_div_ceil(precision_decrease)?
+            balance.safe_mul(cumulative_interest)?.safe_div_ceil(precision_decrease)?
         }
     };
 

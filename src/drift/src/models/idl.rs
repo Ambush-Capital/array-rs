@@ -2061,63 +2061,7 @@ pub mod types {
     #![doc = r" IDL types"]
     use super::*;
     use std::ops::Mul;
-    #[doc = ""]
-    #[doc = " backwards compatible u128 deserializing data from rust <=1.76.0 when u/i128 was 8-byte aligned"]
-    #[doc = " https://solana.stackexchange.com/questions/7720/using-u128-without-sacrificing-alignment-8"]
-    #[derive(
-        Default,
-        PartialEq,
-        AnchorSerialize,
-        AnchorDeserialize,
-        Serialize,
-        Deserialize,
-        Copy,
-        Clone,
-        bytemuck :: Zeroable,
-        bytemuck :: Pod,
-        Debug,
-    )]
-    #[repr(C)]
-    pub struct u128(pub [u8; 16]);
-    impl u128 {
-        #[doc = " convert self into the std `u128` type"]
-        pub fn as_u128(&self) -> std::primitive::u128 {
-            std::primitive::u128::from_le_bytes(self.0)
-        }
-    }
-    impl From<std::primitive::u128> for self::u128 {
-        fn from(value: std::primitive::u128) -> Self {
-            Self(value.to_le_bytes())
-        }
-    }
-    #[doc = " backwards compatible i128 deserializing data from rust <=1.76.0 when u/i128 was 8-byte aligned"]
-    #[doc = " https://solana.stackexchange.com/questions/7720/using-u128-without-sacrificing-alignment-8"]
-    #[derive(
-        Default,
-        PartialEq,
-        AnchorSerialize,
-        AnchorDeserialize,
-        Serialize,
-        Deserialize,
-        Copy,
-        Clone,
-        bytemuck :: Zeroable,
-        bytemuck :: Pod,
-        Debug,
-    )]
-    #[repr(C)]
-    pub struct i128(pub [u8; 16]);
-    impl i128 {
-        #[doc = " convert self into the std `i128` type"]
-        pub fn as_i128(&self) -> core::primitive::i128 {
-            core::primitive::i128::from_le_bytes(self.0)
-        }
-    }
-    impl From<core::primitive::i128> for i128 {
-        fn from(value: core::primitive::i128) -> Self {
-            Self(value.to_le_bytes())
-        }
-    }
+
     #[repr(transparent)]
     #[derive(AnchorDeserialize, AnchorSerialize, Copy, Clone, PartialEq, Debug)]
     pub struct Signature(pub [u8; 64]);

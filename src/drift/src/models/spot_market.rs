@@ -13,19 +13,19 @@ impl SpotMarket {
     }
 
     pub fn get_deposits(&self) -> DriftResult<u128> {
-        get_token_amount(self.deposit_balance.as_u128(), self, &SpotBalanceType::Deposit)
+        get_token_amount(self.deposit_balance, self, &SpotBalanceType::Deposit)
     }
 
     pub fn get_borrows(&self) -> DriftResult<u128> {
-        get_token_amount(self.borrow_balance.as_u128(), self, &SpotBalanceType::Borrow)
+        get_token_amount(self.borrow_balance, self, &SpotBalanceType::Borrow)
     }
 
     pub fn get_available_deposits(&self) -> DriftResult<u128> {
         let deposit_token_amount =
-            get_token_amount(self.deposit_balance.as_u128(), self, &SpotBalanceType::Deposit)?;
+            get_token_amount(self.deposit_balance, self, &SpotBalanceType::Deposit)?;
 
         let borrow_token_amount =
-            get_token_amount(self.borrow_balance.as_u128(), self, &SpotBalanceType::Borrow)?;
+            get_token_amount(self.borrow_balance, self, &SpotBalanceType::Borrow)?;
 
         deposit_token_amount.safe_sub(borrow_token_amount)
     }
@@ -36,10 +36,10 @@ impl SpotMarket {
 
     pub fn get_utilization(self) -> DriftResult<u128> {
         let deposit_token_amount =
-            get_token_amount(self.deposit_balance.as_u128(), &self, &SpotBalanceType::Deposit)?;
+            get_token_amount(self.deposit_balance, &self, &SpotBalanceType::Deposit)?;
 
         let borrow_token_amount =
-            get_token_amount(self.borrow_balance.as_u128(), &self, &SpotBalanceType::Borrow)?;
+            get_token_amount(self.borrow_balance, &self, &SpotBalanceType::Borrow)?;
         calculate_utilization(deposit_token_amount, borrow_token_amount)
     }
 
