@@ -1,7 +1,7 @@
 #![allow(clippy::empty_line_after_doc_comments)]
 
+use aggregator::LendingMarketAggregator;
 use anchor_client::{Client, Cluster};
-use drift::client::DriftClient;
 use kamino::client::KaminoClient;
 use solana_sdk::{commitment_config::CommitmentConfig, signature::read_keypair_file};
 
@@ -11,7 +11,8 @@ pub mod marginfi;
 pub mod save;
 
 fn main() {
-    let rpc_url = "https://mainnet.helius-rpc.com/?api-key=80edcf87-c27e-4dba-a1d8-1ec3a1426752"; // Custom RPC URL here
+    let rpc_url = std::env::var("RPC_URL")
+        .map_err(|e| format!("Missing RPC_URL environment variable: {}", e))?;
 
     // Load the wallet keypair
     // Attempt to load the wallet keypair
@@ -37,16 +38,7 @@ fn main() {
         Err(e) => println!("Failed to fetch obligations: {}", e),
     }
 
-    let mut drift_client = DriftClient::new(&client);
-    match drift_client.load_spot_markets() {
-        Ok(_) => {
-            println!("\nDrift Spot Markets:");
-            drift_client.print_spot_markets();
-        }
-        Err(e) => println!("Failed to load Drift spot markets: {}", e),
-    }
-
-    // let mut aggregator = LendingMarketAggregator::new();
-    // let _ = aggregator.load_markets();
-    // aggregator.print_markets();
+    let mut aggregator = LendingMarketAggregator::new();
+    let _ = aggregator.load_markets();
+    aggregator.print_markets();
 }

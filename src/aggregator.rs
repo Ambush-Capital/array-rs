@@ -1,11 +1,15 @@
 use std::{collections::HashMap, str::FromStr};
 
 use crate::{
-    kamino::{client::KaminoClient, utils::fraction::Fraction},
+    kamino::{
+        client::KaminoClient,
+        utils::fraction::{Fraction, FractionExtra},
+    },
     marginfi::client::MarginfiClient,
     save::{client::SaveClient, error::LendingError},
 };
 use anchor_client::{Client, Cluster, Program};
+use drift::{client::DriftClient, error::ErrorCode};
 use mpl_token_metadata::accounts::Metadata;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -25,8 +29,6 @@ pub struct LendingReserve {
 
     pub borrow_rate: Fraction,
     pub supply_rate: Fraction,
-    pub slot_adjusted_borrow_rate: Fraction,
-    pub slot_adjusted_supply_rate: Fraction,
     pub borrow_apy: Fraction, //these are slot adjusted
     pub supply_apy: Fraction, //these are slot adjusted
 
@@ -65,57 +67,57 @@ impl LendingMarketAggregator {
                 mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".parse().unwrap(),
                 lending_reserves: vec![],
             },
-            MintAsset {
-                name: "SOL".to_string(),
-                symbol: "Wrapped SOL".to_string(),
-                market_price_sf: 0,
-                mint: "So11111111111111111111111111111111111111112".parse().unwrap(),
-                lending_reserves: vec![],
-            },
-            MintAsset {
-                name: "USDT".to_string(),
-                symbol: "USDT".to_string(),
-                market_price_sf: 0,
-                mint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB".parse().unwrap(),
-                lending_reserves: vec![],
-            },
-            MintAsset {
-                name: "USDS".to_string(),
-                symbol: "USDC".to_string(),
-                market_price_sf: 0,
-                mint: "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA".parse().unwrap(),
-                lending_reserves: vec![],
-            },
-            MintAsset {
-                name: "mSOL".to_string(),
-                symbol: "Marinade staked SOL (mSOL)".to_string(),
-                market_price_sf: 0,
-                mint: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So".parse().unwrap(),
-                lending_reserves: vec![],
-            },
-            MintAsset {
-                name: "jitoSOL".to_string(),
-                symbol: "Jito Staked SOL".to_string(),
-                market_price_sf: 0,
-                mint: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn".parse().unwrap(),
-                lending_reserves: vec![],
-            },
-            MintAsset {
-                name: "pyusd".to_string(),
-                symbol: "PayPal USD".to_string(),
-                market_price_sf: 0,
-                mint: "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo".parse().unwrap(),
-                lending_reserves: vec![],
-            },
+            // MintAsset {
+            //     name: "SOL".to_string(),
+            //     symbol: "Wrapped SOL".to_string(),
+            //     market_price_sf: 0,
+            //     mint: "So11111111111111111111111111111111111111112".parse().unwrap(),
+            //     lending_reserves: vec![],
+            // },
+            // MintAsset {
+            //     name: "USDT".to_string(),
+            //     symbol: "USDT".to_string(),
+            //     market_price_sf: 0,
+            //     mint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB".parse().unwrap(),
+            //     lending_reserves: vec![],
+            // },
+            // MintAsset {
+            //     name: "USDS".to_string(),
+            //     symbol: "USDC".to_string(),
+            //     market_price_sf: 0,
+            //     mint: "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA".parse().unwrap(),
+            //     lending_reserves: vec![],
+            // },
+            // MintAsset {
+            //     name: "mSOL".to_string(),
+            //     symbol: "Marinade staked SOL (mSOL)".to_string(),
+            //     market_price_sf: 0,
+            //     mint: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So".parse().unwrap(),
+            //     lending_reserves: vec![],
+            // },
+            // MintAsset {
+            //     name: "jitoSOL".to_string(),
+            //     symbol: "Jito Staked SOL".to_string(),
+            //     market_price_sf: 0,
+            //     mint: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn".parse().unwrap(),
+            //     lending_reserves: vec![],
+            // },
+            // MintAsset {
+            //     name: "pyusd".to_string(),
+            //     symbol: "PayPal USD".to_string(),
+            //     market_price_sf: 0,
+            //     mint: "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo".parse().unwrap(),
+            //     lending_reserves: vec![],
+            // },
         ];
 
         Self { assets, metadata_cache: HashMap::new() }
     }
 
-    pub fn load_markets(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn load_markets(&mut self) -> ArrayResult<()> {
         // Initialize clients
-        let rpc_url =
-            "https://mainnet.helius-rpc.com/?api-key=80edcf87-c27e-4dba-a1d8-1ec3a1426752";
+        let rpc_url = std::env::var("RPC_URL")
+            .map_err(|e| format!("Missing RPC_URL environment variable: {}", e))?;
         let payer = read_keypair_file("/Users/aaronhenshaw/.config/solana/id.json")?;
         let client = Client::new_with_options(
             Cluster::Custom(rpc_url.to_string(), rpc_url.to_string()),
@@ -134,6 +136,7 @@ impl LendingMarketAggregator {
         let mut save_client = SaveClient::new(&client);
         let mut marginfi_client = MarginfiClient::new(&client);
         let mut kamino_client = KaminoClient::new(&client);
+        let mut drift_client = DriftClient::new(&client);
 
         println!("Starting loading all lending markets...");
         // Load Save/Kamino reserves
@@ -145,6 +148,9 @@ impl LendingMarketAggregator {
 
         println!("Loading Marginfi reserves");
         marginfi_client.load_banks_for_group()?;
+
+        println!("Loading Drift reserves");
+        drift_client.load_spot_markets()?;
 
         println!("Done loading all lending markets.");
 
@@ -196,14 +202,6 @@ impl LendingMarketAggregator {
                             reserve.current_borrow_rate().unwrap().to_scaled_val(),
                         )
                         .unwrap(),
-                        slot_adjusted_borrow_rate: scale_to_fraction(
-                            reserve.current_slot_adjusted_borrow_rate().to_scaled_val(),
-                        )
-                        .unwrap(),
-                        slot_adjusted_supply_rate: scale_to_fraction(
-                            reserve.current_supply_apr().to_scaled_val(),
-                        )
-                        .unwrap(),
                         borrow_apy: scale_to_fraction(reserve.current_borrow_apy().to_scaled_val())
                             .unwrap(),
                         supply_apy: scale_to_fraction(reserve.current_supply_apy().to_scaled_val())
@@ -229,17 +227,6 @@ impl LendingMarketAggregator {
                     total_borrows: bank.get_total_borrowed().unwrap().floor().to_num::<u128>()
                         * MARGINFI_SCALE_FACTOR as u128,
                     supply_rate: Fraction::from_bits(
-                        interest_rates.lending_rate_apr.to_bits().checked_shl(SCALE_SHIFT).unwrap()
-                            as u128,
-                    ),
-                    slot_adjusted_borrow_rate: Fraction::from_bits(
-                        interest_rates
-                            .borrowing_rate_apr
-                            .to_bits()
-                            .checked_shl(SCALE_SHIFT)
-                            .unwrap() as u128,
-                    ),
-                    slot_adjusted_supply_rate: Fraction::from_bits(
                         interest_rates.lending_rate_apr.to_bits().checked_shl(SCALE_SHIFT).unwrap()
                             as u128,
                     ),
@@ -299,10 +286,6 @@ impl LendingMarketAggregator {
                 let mint_pubkey =
                     Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
                 if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == mint_pubkey) {
-                    println!(
-                        "Asset: {}, Market {}, Liquidation Threshold: {}%",
-                        asset.name, market_name, reserve.config.liquidation_threshold_pct
-                    );
                     asset.lending_reserves.push(LendingReserve {
                         protocol_name: "Kamino".to_string(),
                         market_name: market_name.clone(),
@@ -312,13 +295,73 @@ impl LendingMarketAggregator {
                             * MARGINFI_SCALE_FACTOR as u128,
                         supply_rate: reserve.current_supply_apy(),
                         borrow_rate: reserve.current_borrow_rate().unwrap(),
-                        slot_adjusted_borrow_rate: reserve.slot_adjusted_borrow_rate(),
-                        slot_adjusted_supply_rate: reserve.current_supply_apy(),
                         borrow_apy: reserve.current_borrow_apy(),
                         supply_apy: reserve.current_supply_apy(),
                         collateral_assets: valid_collateral.clone(),
                     });
                 }
+            }
+        }
+
+        // Load Drift markets
+        let mut pool_assets: HashMap<u8, Vec<MintAsset>> = HashMap::new();
+
+        // Group spot markets by pool_id and create MintAssets
+        for (_, market) in &drift_client.spot_markets {
+            if market.optimal_utilization > 0 {
+                let mint_pubkey = market.mint;
+                let (name, symbol) = self
+                    .load_token_metadata(&program, &mint_pubkey)
+                    .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
+
+                let mint_asset = MintAsset {
+                    name,
+                    symbol,
+                    market_price_sf: 0,
+                    mint: mint_pubkey,
+                    lending_reserves: vec![],
+                };
+
+                pool_assets.entry(market.pool_id).or_insert_with(Vec::new).push(mint_asset);
+            }
+        }
+
+        for (_, market) in &drift_client.spot_markets {
+            let mint_pubkey = market.mint;
+            if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == mint_pubkey) {
+                let market_name = String::from_utf8(
+                    market.name.iter().take_while(|&&c| c != 0).copied().collect::<Vec<u8>>(),
+                )
+                .unwrap_or_default();
+
+                // TODO: I think lets rip all of the Fraction stuff out and just use u128s
+                let borrow_rate = market.get_borrow_rate()?;
+                let borrow_rate_frac = Fraction::from_bits(
+                    borrow_rate.checked_shl(SCALE_SHIFT).ok_or(ErrorCode::MathError)?
+                        / 10_u128.pow(6),
+                );
+
+                let deposit_rate = market.get_deposit_rate().unwrap_or(0);
+                let deposit_rate_frac = Fraction::from_bits(
+                    deposit_rate.checked_shl(SCALE_SHIFT).ok_or(ErrorCode::MathError)?
+                        / 10_u128.pow(6),
+                );
+
+                println!("Vault for token {:?} is {:?}", market.mint, market.vault);
+
+                asset.lending_reserves.push(LendingReserve {
+                    protocol_name: "Drift".to_string(),
+                    market_name,
+                    total_supply: market.get_deposits().unwrap_or(0)
+                        * MARGINFI_SCALE_FACTOR as u128,
+                    total_borrows: market.get_borrows().unwrap_or(0)
+                        * MARGINFI_SCALE_FACTOR as u128,
+                    supply_rate: deposit_rate_frac,
+                    borrow_rate: borrow_rate_frac,
+                    borrow_apy: borrow_rate_frac,
+                    supply_apy: deposit_rate_frac,
+                    collateral_assets: pool_assets.get(&market.pool_id).unwrap().clone(), // Drift allows cross-collateral for all assets
+                });
             }
         }
 
@@ -401,7 +444,8 @@ impl LendingMarketAggregator {
             }
         }
 
-        table.printstd();
+        let mut writer = std::io::stdout();
+        table.to_csv(&mut writer).unwrap();
     }
 }
 
@@ -428,3 +472,53 @@ pub fn format_large_number(num: f64) -> String {
         format!("{:.2}", num)
     }
 }
+
+#[derive(Debug)]
+pub enum ArrayError {
+    Drift(ErrorCode),
+    Other(Box<dyn std::error::Error>),
+}
+
+// Convert Drift errors automatically
+impl From<ErrorCode> for ArrayError {
+    fn from(err: ErrorCode) -> Self {
+        ArrayError::Drift(err)
+    }
+}
+
+// Convert any standard error
+impl From<Box<dyn std::error::Error>> for ArrayError {
+    fn from(err: Box<dyn std::error::Error>) -> Self {
+        ArrayError::Other(err)
+    }
+}
+
+// Add this to your ArrayError implementations
+impl From<String> for ArrayError {
+    fn from(err: String) -> Self {
+        ArrayError::Other(err.into())
+    }
+}
+
+// Also implement for &str to avoid manual conversion
+impl From<&str> for ArrayError {
+    fn from(err: &str) -> Self {
+        ArrayError::Other(err.into())
+    }
+}
+
+// Result type alias
+pub type ArrayResult<T> = Result<T, ArrayError>;
+
+// Optional: Implement Display for cleaner error messages
+impl std::fmt::Display for ArrayError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArrayError::Drift(e) => write!(f, "Drift error: {:?}", e),
+            ArrayError::Other(e) => write!(f, "Other error: {}", e),
+        }
+    }
+}
+
+// Implement Error trait to work with ? operator
+impl std::error::Error for ArrayError {}
