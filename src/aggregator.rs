@@ -444,8 +444,9 @@ impl LendingMarketAggregator {
             }
         }
 
-        let mut writer = std::io::stdout();
-        table.to_csv(&mut writer).unwrap();
+        // let mut writer = std::io::stdout();
+        // table.to_csv(&mut writer).unwrap();
+        table.printstd();
     }
 }
 
