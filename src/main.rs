@@ -11,8 +11,13 @@ pub mod marginfi;
 pub mod save;
 
 fn main() {
-    let rpc_url = std::env::var("RPC_URL")
-        .map_err(|e| format!("Missing RPC_URL environment variable: {}", e))?;
+    let rpc_url = match std::env::var("RPC_URL") {
+        Ok(rpc) => rpc,
+        Err(_) => {
+            eprintln!("Error: Failed to load RPC_URL. Ensure the environment variable is set.");
+            return;
+        }
+    };
 
     // Load the wallet keypair
     // Attempt to load the wallet keypair
