@@ -2,7 +2,10 @@
 
 use aggregator::LendingMarketAggregator;
 use anchor_client::{Client, Cluster};
+use drift::client::DriftClient;
 use kamino::client::KaminoClient;
+use marginfi::client::MarginfiClient;
+use save::client::SaveClient;
 use solana_sdk::{commitment_config::CommitmentConfig, signature::read_keypair_file};
 
 pub mod aggregator;
@@ -37,10 +40,27 @@ fn main() {
     );
 
     let kamino_client = KaminoClient::new(&client);
-
     match kamino_client.get_obligations("AmrekAq6s3n2frDi67WUaZnbPkBb1h4xaid1Y8QLMAYN") {
         Ok(_) => (),
         Err(e) => println!("Failed to fetch obligations: {}", e),
+    }
+
+    let marginfi_client = MarginfiClient::new(&client);
+    match marginfi_client.get_obligations("AmrekAq6s3n2frDi67WUaZnbPkBb1h4xaid1Y8QLMAYN") {
+        Ok(_) => (),
+        Err(e) => println!("Failed to fetch marginfi obligations: {}", e),
+    }
+
+    let drift_client = DriftClient::new(&client);
+    match drift_client.get_obligations("AmrekAq6s3n2frDi67WUaZnbPkBb1h4xaid1Y8QLMAYN") {
+        Ok(_) => (),
+        Err(e) => println!("Failed to fetch drift obligations: {}", e),
+    }
+
+    let save_client = SaveClient::new(&client);
+    match save_client.get_obligations("AmrekAq6s3n2frDi67WUaZnbPkBb1h4xaid1Y8QLMAYN") {
+        Ok(_) => (),
+        Err(e) => println!("Failed to fetch save obligations: {}", e),
     }
 
     let mut aggregator = LendingMarketAggregator::new();

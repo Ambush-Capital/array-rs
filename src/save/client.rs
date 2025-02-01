@@ -1,4 +1,4 @@
-use crate::save::models::Reserve;
+use crate::save::models::{Obligation, Reserve};
 use anchor_client::{Client, Program};
 use prettytable::{row, Table};
 use solana_client::{
@@ -137,5 +137,104 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
             }
         }
         table.printstd();
+    }
+
+    pub fn get_obligations(&self, owner_pubkey: &str) -> Result<(), String> {
+        let owner = owner_pubkey.parse::<Pubkey>().map_err(|e| format!("Invalid pubkey: {}", e))?;
+
+        let filters = vec![
+            RpcFilterType::DataSize(Obligation::LEN as u64),
+            RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+                1 + 8 + 1 + 32, // Skip version(1) + last_update(8+1) + lending_market(32) to get to owner
+                owner.to_bytes().to_vec(),
+            )),
+        ];
+
+        let obligations = self
+            .program
+            .rpc()
+            .get_program_accounts_with_config(
+                &self.program.id(),
+                RpcProgramAccountsConfig {
+                    filters: Some(filters),
+                    account_config: solana_client::rpc_config::RpcAccountInfoConfig {
+                        encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            )
+            .map_err(|e| format!("Failed to fetch obligations: {}", e))?;
+
+        if obligations.is_empty() {
+            println!("No Solend obligations found for {}", owner_pubkey);
+            return Ok(());
+        }
+
+        println!("\nSolend Obligations for {}:", owner_pubkey);
+        for (pubkey, account) in obligations {
+            let obligation = match Obligation::unpack(&account.data) {
+                Ok(obligation) => obligation,
+                Err(_) => {
+                    continue;
+                }
+            };
+            if obligation.owner.to_string() != owner.to_string() {
+                continue;
+            }
+            println!("\nObligation address: {}", pubkey);
+            println!("Owner: {}", obligation.owner);
+            println!("Lending Market: {}", obligation.lending_market);
+            println!("Deposited value: {:.3}", obligation.deposited_value);
+            println!("Borrowed value: {:.3}", obligation.borrowed_value);
+            println!("Allowed borrow value: {:.3}", obligation.allowed_borrow_value);
+            println!("Unhealthy borrow value: {:.3}", obligation.unhealthy_borrow_value);
+            println!(
+                "Super unhealthy borrow value: {:.3}",
+                obligation.super_unhealthy_borrow_value
+            );
+            println!("Borrowing isolated asset: {}", obligation.borrowing_isolated_asset);
+
+            // Print deposits
+            if !obligation.deposits.is_empty() {
+                println!("\nDeposits:");
+                let decimals = 6; // or reserve.liquidity.mint_decimals
+                                  // Convert the raw deposited_amount to a UI amount:
+                for deposit in &obligation.deposits {
+                    let reserve_account = self
+                        .program
+                        .rpc()
+                        .get_account(&Pubkey::new_from_array(deposit.deposit_reserve.to_bytes()))
+                        .map_err(|e| format!("Failed to fetch reserve: {}", e))?;
+
+                    let reserve = Reserve::unpack(&reserve_account.data)
+                        .map_err(|e| format!("Failed to unpack reserve: {}", e))?;
+                    let exchange_rate = reserve
+                        .collateral_exchange_rate()
+                        .map_err(|e| format!("Failed to get collateral exchange rate: {}", e))?;
+
+                    let ui_amount = exchange_rate
+                        .collateral_to_liquidity(deposit.deposited_amount)
+                        .unwrap() as f64
+                        / 10f64.powi(decimals);
+                    println!("  Reserve: {}", deposit.deposit_reserve);
+                    println!("  Amount: {:.3}", ui_amount);
+                    println!("  Market Value: {:.3}", deposit.market_value);
+                    println!("  Attributed Borrow Value: {:.3}", deposit.attributed_borrow_value);
+                }
+            }
+
+            // Print borrows
+            if !obligation.borrows.is_empty() {
+                println!("\nBorrows:");
+                for borrow in &obligation.borrows {
+                    println!("  Reserve: {}", borrow.borrow_reserve);
+                    println!("  Amount: {:.3}", borrow.borrowed_amount_wads);
+                    println!("  Market Value: {:.3}", borrow.market_value);
+                }
+            }
+        }
+
+        Ok(())
     }
 }

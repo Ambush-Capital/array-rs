@@ -9,6 +9,7 @@ use crate::{
     math_error,
 };
 
+use anchor_lang::prelude::borsh;
 use anchor_lang::prelude::*;
 use bytemuck::Zeroable;
 use fixed::types::I80F48;
@@ -17,7 +18,7 @@ use type_layout::TypeLayout;
 assert_struct_size!(MarginfiAccount, 2304);
 assert_struct_align!(MarginfiAccount, 8);
 #[repr(C)]
-#[derive(Debug, PartialEq, Eq, Zeroable, TypeLayout)]
+#[derive(Debug, PartialEq, Eq, Zeroable, TypeLayout, AnchorDeserialize, AnchorSerialize)]
 pub struct MarginfiAccount {
     pub group: Pubkey,                   // 32
     pub authority: Pubkey,               // 32
@@ -160,7 +161,7 @@ const MAX_LENDING_ACCOUNT_BALANCES: usize = 16;
 assert_struct_size!(LendingAccount, 1728);
 assert_struct_align!(LendingAccount, 8);
 #[repr(C)]
-#[derive(Debug, PartialEq, Eq, Zeroable, TypeLayout)]
+#[derive(Debug, PartialEq, Eq, Zeroable, TypeLayout, AnchorDeserialize, AnchorSerialize)]
 pub struct LendingAccount {
     pub balances: [Balance; MAX_LENDING_ACCOUNT_BALANCES], // 104 * 16 = 1664
     pub _padding: [u64; 8],                                // 8 * 8 = 64
@@ -185,7 +186,7 @@ impl LendingAccount {
 assert_struct_size!(Balance, 104);
 assert_struct_align!(Balance, 8);
 #[repr(C)]
-#[derive(Debug, PartialEq, Eq, Zeroable, TypeLayout)]
+#[derive(Debug, PartialEq, Eq, Zeroable, TypeLayout, AnchorDeserialize, AnchorSerialize)]
 pub struct Balance {
     pub active: bool,
     pub bank_pk: Pubkey,

@@ -7,7 +7,7 @@ use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use std::{ops::Deref, str::FromStr};
 
-use crate::models::idl::accounts::SpotMarket;
+use crate::models::idl::accounts::{SpotMarket, User};
 
 pub struct DriftClient<C> {
     program: Program<C>,
@@ -94,6 +94,58 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
         }
 
         table.printstd();
+    }
+
+    pub fn get_obligations(&self, owner_pubkey: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let owner = Pubkey::from_str(owner_pubkey)?;
+
+        let filters = vec![
+            RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+                8, // Skip discriminator
+                owner.to_bytes().to_vec(),
+            )),
+            RpcFilterType::DataSize(std::mem::size_of::<User>() as u64 + 8), // +8 for discriminator
+        ];
+
+        let accounts = self.program.rpc().get_program_accounts_with_config(
+            &self.drift_program_id,
+            RpcProgramAccountsConfig {
+                filters: Some(filters),
+                account_config: RpcAccountInfoConfig {
+                    encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )?;
+
+        if accounts.is_empty() {
+            println!("No Drift accounts found for {}", owner_pubkey);
+            return Ok(());
+        }
+
+        println!("\nDrift Accounts for {}:", owner_pubkey);
+        for (pubkey, account) in accounts {
+            let user = User::try_deserialize(&mut &account.data[..])?;
+
+            println!("\nAccount address: {}", pubkey);
+
+            // Print spot positions
+            for position in user.spot_positions.iter().filter(|p| p.scaled_balance > 0) {
+                if let Some((_, market)) =
+                    self.spot_markets.iter().find(|(_, m)| m.market_index == position.market_index)
+                {
+                    println!("\nSpot Position:");
+                    println!(
+                        "  Market: {}",
+                        String::from_utf8_lossy(&market.name).trim_matches(char::from(0))
+                    );
+                    println!("  Deposits: {}", position.cumulative_deposits);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
