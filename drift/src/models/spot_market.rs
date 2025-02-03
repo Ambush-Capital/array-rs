@@ -13,13 +13,13 @@ impl SpotMarket {
 
     pub fn get_borrow_rate(&self) -> DriftResult<u128> {
         let utilization = self.get_utilization()?;
-        calculate_borrow_rate(&self, utilization)
+        calculate_borrow_rate(self, utilization)
     }
 
     pub fn get_deposit_rate(&self) -> DriftResult<u128> {
         let utilization = self.get_utilization()?;
         let borrow_rate = self.get_borrow_rate()?;
-        calculate_deposit_rate(&self, utilization, borrow_rate)
+        calculate_deposit_rate(self, utilization, borrow_rate)
     }
 
     pub fn get_deposits(&self) -> DriftResult<u128> {

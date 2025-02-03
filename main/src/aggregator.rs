@@ -171,18 +171,18 @@ impl LendingMarketAggregator {
                             reserve.current_supply_apr().to_scaled_val(),
                         )
                         .unwrap()
-                        .to_num(),
+                        .to_bits(),
                         borrow_rate: scale_to_fraction(
                             reserve.current_borrow_rate().unwrap().to_scaled_val(),
                         )
                         .unwrap()
-                        .to_num(),
+                        .to_bits(),
                         borrow_apy: scale_to_fraction(reserve.current_borrow_apy().to_scaled_val())
                             .unwrap()
-                            .to_num(),
+                            .to_bits(),
                         supply_apy: scale_to_fraction(reserve.current_supply_apy().to_scaled_val())
                             .unwrap()
-                            .to_num(),
+                            .to_bits(),
                         collateral_assets: valid_collateral.clone(),
                     });
                 }
@@ -268,10 +268,10 @@ impl LendingMarketAggregator {
                             * MARGINFI_SCALE_FACTOR as u128,
                         total_borrows: reserve.liquidity.total_borrow().to_num::<u128>()
                             * MARGINFI_SCALE_FACTOR as u128,
-                        supply_rate: reserve.current_supply_apy().to_num(),
-                        borrow_rate: reserve.current_borrow_rate().unwrap().to_num(),
-                        borrow_apy: reserve.current_borrow_apy().to_num(),
-                        supply_apy: reserve.current_supply_apy().to_num(),
+                        supply_rate: Fraction::to_bits(reserve.current_supply_apy()),
+                        borrow_rate: Fraction::to_bits(reserve.current_borrow_rate().unwrap()),
+                        borrow_apy: Fraction::to_bits(reserve.current_borrow_apy()),
+                        supply_apy: Fraction::to_bits(reserve.current_supply_apy()),
                         collateral_assets: valid_collateral.clone(),
                     });
                 }
@@ -297,7 +297,7 @@ impl LendingMarketAggregator {
                     lending_reserves: vec![],
                 };
 
-                pool_assets.entry(market.pool_id).or_insert_with(Vec::new).push(mint_asset);
+                pool_assets.entry(market.pool_id).or_default().push(mint_asset);
             }
         }
 
@@ -405,8 +405,14 @@ impl LendingMarketAggregator {
                     asset.name,
                     format_large_number(reserve.total_supply as f64 / SUPPLY_SCALE_FACTOR),
                     format_large_number(reserve.total_borrows as f64 / SUPPLY_SCALE_FACTOR),
-                    format!("{:.2}%", reserve.supply_apy),
-                    format!("{:.2}%", reserve.borrow_apy),
+                    format!(
+                        "{:.2}%",
+                        reserve.supply_apy as f64 / (1u64 << SCALE_SHIFT) as f64 * 100.0
+                    ),
+                    format!(
+                        "{:.2}%",
+                        reserve.borrow_apy as f64 / (1u64 << SCALE_SHIFT) as f64 * 100.0
+                    ),
                     reserve
                         .collateral_assets
                         .iter()
