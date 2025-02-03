@@ -1,9 +1,10 @@
 use std::ops::Deref;
 
+use aggregation::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
 use anchor_lang::AnchorDeserialize;
-use borsh::BorshDeserialize;
 use fixed::types::I80F48;
+use log::{debug, info};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_sdk::{pubkey::Pubkey, signature::Signer};
 use std::str::FromStr;
@@ -85,7 +86,51 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
         Ok(())
     }
 
-    pub fn get_obligations(&self, owner_pubkey: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn get_user_obligations(
+        &self,
+        wallet_pubkey: &str,
+    ) -> Result<Vec<UserObligation>, Box<dyn std::error::Error>> {
+        let mut obligations = Vec::new();
+        let marginfi_accounts = self.get_obligations(wallet_pubkey)?;
+
+        for (balance, bank) in marginfi_accounts {
+            // Process active balances
+            if let Some(side) = balance.get_side() {
+                let amount = match side {
+                    BalanceSide::Assets => {
+                        I80F48::from(balance.asset_shares) * I80F48::from(bank.asset_share_value)
+                    }
+                    BalanceSide::Liabilities => {
+                        I80F48::from(balance.liability_shares)
+                            * I80F48::from(bank.liability_share_value)
+                    }
+                };
+
+                obligations.push(UserObligation {
+                    symbol: "".to_string(),
+                    market_price_sf: 0,
+                    mint: bank.mint,
+                    mint_decimals: bank.mint_decimals as u32,
+                    amount: I80F48::to_num(amount),
+                    protocol_name: "Marginfi".to_string(),
+                    market_name: "General".to_string(),
+                    obligation_type: match side {
+                        BalanceSide::Assets => ObligationType::Asset,
+                        BalanceSide::Liabilities => ObligationType::Liability,
+                    },
+                });
+            }
+        }
+
+        Ok(obligations)
+    }
+
+    /// Get the obligations for a given owner
+    fn get_obligations(
+        &self,
+        owner_pubkey: &str,
+    ) -> Result<Vec<(Balance, Bank)>, Box<dyn std::error::Error>> {
+        let mut result = Vec::new();
         let owner = Pubkey::from_str(owner_pubkey)?;
 
         let filters = vec![
@@ -109,16 +154,13 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
         )?;
 
         if accounts.is_empty() {
-            println!("No marginfi accounts found for {}", owner_pubkey);
-            return Ok(());
+            debug!("No marginfi accounts found for {}", owner_pubkey);
+            return Ok(result);
         }
 
-        println!("\nMarginfi Accounts for {}:", owner_pubkey);
-        for (pubkey, account) in accounts {
+        info!("\n{} Marginfi Accounts found for {}:", accounts.len(), owner_pubkey);
+        for (_, account) in accounts {
             let marginfi_account = MarginfiAccount::try_from_slice(&account.data[8..])?;
-
-            println!("\nAccount address: {}", pubkey);
-            println!("Group: {}", marginfi_account.group);
 
             // Print active balances
             for balance in marginfi_account.lending_account.get_active_balances_iter() {
@@ -128,24 +170,13 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
                     // Get bank account data
                     if let Ok(bank_account) = self.program.rpc().get_account(&balance.bank_pk) {
                         if let Ok(bank) = Bank::try_from_slice(&bank_account.data[8..]) {
-                            // Convert shares to value using bank vault ratio
-                            let liability_share_value = I80F48::from(bank.liability_share_value);
-                            let asset_share_value = I80F48::from(bank.asset_share_value);
-
-                            let asset_value =
-                                I80F48::from(balance.asset_shares) * asset_share_value;
-                            let liability_value =
-                                I80F48::from(balance.liability_shares) * liability_share_value;
-
-                            println!("Bank: {}", balance.bank_pk);
-                            println!("Asset value: {:.6}", asset_value.to_num::<f64>());
-                            println!("Liability value: {:.6}", liability_value.to_num::<f64>());
+                            result.push((balance.clone(), bank));
                         }
                     }
                 }
             }
         }
 
-        Ok(())
+        Ok(result)
     }
 }

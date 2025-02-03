@@ -1,3 +1,4 @@
+use aggregation::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
 use borsh::BorshDeserialize;
 use prettytable::{row, Table};
@@ -6,22 +7,27 @@ use solana_client::{
     rpc_filter::{self, Memcmp, MemcmpEncodedBytes},
 };
 use solana_sdk::{account::Account, pubkey::Pubkey, signer::Signer};
-use std::{ops::Deref, str::FromStr};
+use std::{collections::HashMap, ops::Deref, str::FromStr};
 
-use crate::kamino::{models::obligation::Obligation, utils::consts::RESERVE_SIZE};
 use crate::kamino::{
     models::{lending_market::LendingMarket, reserve::Reserve},
     utils::consts::OBLIGATION_SIZE,
     utils::fraction::Fraction,
 };
+use crate::{
+    debug,
+    kamino::{models::obligation::Obligation, utils::consts::RESERVE_SIZE},
+};
 
 type KaminoMarkets = (Pubkey, LendingMarket, Vec<(Pubkey, Reserve)>);
+type MarketNameMap = HashMap<String, &'static str>;
 
 pub struct KaminoClient<C> {
     program: Program<C>,
     kamino_program_id: Pubkey,
     market_pubkeys: Vec<String>,
     pub markets: Vec<KaminoMarkets>,
+    pub market_names: MarketNameMap,
 }
 
 impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
@@ -29,17 +35,21 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
         let kamino_program_id = Pubkey::from_str("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD")
             .expect("Invalid Kamino Lending Program ID");
 
-        let market_pubkeys = vec![
-            "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF".to_string(), //main market
-            "H6rHXmXoCQvq8Ue81MqNh7ow5ysPa1dSozwW3PU1dDH6".to_string(), //JITO Market
-            "DxXdAyU3kCjnyggvHmY5nAwg5cRbbmdyX3npfDMjjMek".to_string(), //JLP Market
-            "ByYiZxp8QrdN9qbdtaAiePN8AAr3qvTPppNJDpf5DVJ5".to_string(), //Altcoin market
-            "BJnbcRHqvppTyGesLzWASGKnmnF1wq9jZu6ExrjT7wvF".to_string(), //Ethena market
-        ];
+        let market_names: MarketNameMap = [
+            ("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF".to_string(), "Main"),
+            ("H6rHXmXoCQvq8Ue81MqNh7ow5ysPa1dSozwW3PU1dDH6".to_string(), "JITO"),
+            ("DxXdAyU3kCjnyggvHmY5nAwg5cRbbmdyX3npfDMjjMek".to_string(), "JLP"),
+            ("ByYiZxp8QrdN9qbdtaAiePN8AAr3qvTPppNJDpf5DVJ5".to_string(), "Altcoin"),
+            ("BJnbcRHqvppTyGesLzWASGKnmnF1wq9jZu6ExrjT7wvF".to_string(), "Ethena"),
+        ]
+        .into_iter()
+        .collect();
+
+        let market_pubkeys: Vec<String> = market_names.keys().cloned().collect();
 
         let program = client.program(kamino_program_id).expect("Failed to load Kamino program");
 
-        Self { program, kamino_program_id, market_pubkeys, markets: Vec::new() }
+        Self { program, kamino_program_id, market_pubkeys, markets: Vec::new(), market_names }
     }
 
     pub fn load_markets(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -69,6 +79,20 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
         Ok(())
     }
 
+    fn get_reserve_by_pubkey(
+        &self,
+        pubkey: &Pubkey,
+    ) -> Result<Option<&Reserve>, Box<dyn std::error::Error>> {
+        for (_, _, reserves) in &self.markets {
+            if let Some((_, reserve)) =
+                reserves.iter().find(|(reserve_pubkey, _)| reserve_pubkey == pubkey)
+            {
+                return Ok(Some(reserve));
+            }
+        }
+        Ok(None)
+    }
+
     pub fn print_markets(&self) {
         let mut table = Table::new();
         table.add_row(row![
@@ -85,10 +109,12 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
             "Reserve"
         ]);
 
-        for (_, lending_market, reserves) in &self.markets {
+        for (market_pubkey, _, reserves) in &self.markets {
+            let market_name =
+                self.market_names.get(&market_pubkey.to_string()).unwrap_or(&"Unknown");
             for (pubkey, reserve) in reserves {
                 table.add_row(row![
-                    String::from_utf8_lossy(&lending_market.name).trim_matches('\0'),
+                    market_name,
                     reserve.token_symbol(),
                     format!(
                         "{:.3}",
@@ -149,7 +175,66 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
             .map_err(Box::new)
     }
 
-    pub fn get_obligations(&self, owner_pubkey: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn get_user_obligations(
+        &self,
+        owner_pubkey: &str,
+    ) -> Result<Vec<UserObligation>, Box<dyn std::error::Error>> {
+        let obligations = self.get_obligations(owner_pubkey)?;
+
+        let mut user_obligations = Vec::new();
+
+        for (_, obligation) in obligations {
+            let market_name = self
+                .market_names
+                .get(&obligation.lending_market.to_string())
+                .unwrap_or(&"Unknown")
+                .to_string();
+
+            // Process deposits
+            for deposit in obligation.deposits {
+                if let Some(reserve) =
+                    self.get_reserve_by_pubkey(&Pubkey::from(deposit.deposit_reserve.to_bytes()))?
+                {
+                    user_obligations.push(UserObligation {
+                        symbol: reserve.token_symbol().to_string(),
+                        market_price_sf: reserve.liquidity.market_price_sf as i64,
+                        mint: Pubkey::from(reserve.liquidity.mint_pubkey.to_bytes()),
+                        mint_decimals: reserve.liquidity.mint_decimals as u32,
+                        amount: deposit.deposited_amount,
+                        protocol_name: "Kamino".to_string(),
+                        market_name: market_name.clone(),
+                        obligation_type: ObligationType::Asset,
+                    });
+                }
+            }
+
+            // Process borrows
+            for borrow in obligation.borrows {
+                if let Some(reserve) =
+                    self.get_reserve_by_pubkey(&Pubkey::from(borrow.borrow_reserve.to_bytes()))?
+                {
+                    user_obligations.push(UserObligation {
+                        symbol: reserve.token_symbol().to_string(),
+                        market_price_sf: reserve.liquidity.market_price_sf as i64,
+                        mint: Pubkey::from(reserve.liquidity.mint_pubkey.to_bytes()),
+                        mint_decimals: reserve.liquidity.mint_decimals as u32,
+                        amount: borrow.borrowed_amount_sf as u64,
+                        protocol_name: "Kamino".to_string(),
+                        market_name: market_name.clone(),
+                        obligation_type: ObligationType::Liability,
+                    });
+                }
+            }
+        }
+
+        Ok(user_obligations)
+    }
+
+    fn get_obligations(
+        &self,
+        owner_pubkey: &str,
+    ) -> Result<Vec<(Pubkey, Obligation)>, Box<dyn std::error::Error>> {
+        let mut ret = Vec::new();
         let owner = Pubkey::from_str(owner_pubkey)?;
 
         let filters = vec![
@@ -173,8 +258,8 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
         )?;
 
         if obligations.is_empty() {
-            println!("No current obligations found for {}", owner_pubkey);
-            return Ok(());
+            debug!("No current obligations found for {}", owner_pubkey);
+            return Ok(ret);
         }
 
         println!("\nObligations for {}:", owner_pubkey);
@@ -200,8 +285,9 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
             );
             println!("Has debt: {}", obligation.has_debt != 0);
             println!("Borrowing disabled: {}", obligation.borrowing_disabled != 0);
+            ret.push((pubkey, obligation));
         }
 
-        Ok(())
+        Ok(ret)
     }
 }

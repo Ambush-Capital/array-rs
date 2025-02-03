@@ -1,6 +1,9 @@
 use crate::error::ErrorCode;
+use crate::models::idl::types::{SpotBalanceType, SpotPosition};
+use aggregation::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
 use anchor_lang::AccountDeserialize;
+use log::{debug, info};
 use prettytable::{row, Table};
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
@@ -96,7 +99,59 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
         table.printstd();
     }
 
-    pub fn get_obligations(&self, owner_pubkey: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn get_user_obligations(
+        &self,
+        owner_pubkey: &str,
+    ) -> Result<Vec<UserObligation>, Box<dyn std::error::Error>> {
+        let spot_positions = self.get_obligations(owner_pubkey)?;
+        let mut obligations = Vec::new();
+
+        for position in spot_positions {
+            let obligation_type = if position.balance_type == SpotBalanceType::Deposit {
+                ObligationType::Asset
+            } else {
+                ObligationType::Liability
+            };
+
+            let (symbol, market_price_sf, mint, mint_decimals, market_name) = self
+                .spot_markets
+                .iter()
+                .find(|(_, m)| m.market_index == position.market_index)
+                .map(|(_, market)| {
+                    let name = String::from_utf8_lossy(&market.name)
+                        .trim_matches(char::from(0))
+                        .to_string();
+                    (
+                        name.clone(),
+                        market.historical_oracle_data.last_oracle_price,
+                        market.mint,
+                        market.decimals,
+                        name,
+                    )
+                })
+                .unwrap_or_default();
+
+            obligations.push(UserObligation {
+                symbol,
+                market_price_sf,
+                mint,
+                mint_decimals,
+                amount: position.scaled_balance,
+                protocol_name: "Drift".to_string(),
+                market_name,
+                obligation_type,
+            });
+        }
+
+        Ok(obligations)
+    }
+
+    /// Get the obligations for a given owner
+    fn get_obligations(
+        &self,
+        owner_pubkey: &str,
+    ) -> Result<Vec<SpotPosition>, Box<dyn std::error::Error>> {
+        let mut result = Vec::new();
         let owner = Pubkey::from_str(owner_pubkey)?;
 
         let filters = vec![
@@ -120,32 +175,21 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
         )?;
 
         if accounts.is_empty() {
-            println!("No Drift accounts found for {}", owner_pubkey);
-            return Ok(());
+            debug!("No Drift accounts found for {}", owner_pubkey);
+            return Ok(result);
         }
 
-        println!("\nDrift Accounts for {}:", owner_pubkey);
-        for (pubkey, account) in accounts {
+        info!("\n{} Drift Accounts found for {}:", accounts.len(), owner_pubkey);
+        for (_, account) in accounts {
             let user = User::try_deserialize(&mut &account.data[..])?;
-
-            println!("\nAccount address: {}", pubkey);
 
             // Print spot positions
             for position in user.spot_positions.iter().filter(|p| p.scaled_balance > 0) {
-                if let Some((_, market)) =
-                    self.spot_markets.iter().find(|(_, m)| m.market_index == position.market_index)
-                {
-                    println!("\nSpot Position:");
-                    println!(
-                        "  Market: {}",
-                        String::from_utf8_lossy(&market.name).trim_matches(char::from(0))
-                    );
-                    println!("  Deposits: {}", position.cumulative_deposits);
-                }
+                result.push(*position);
             }
         }
 
-        Ok(())
+        Ok(result)
     }
 }
 
