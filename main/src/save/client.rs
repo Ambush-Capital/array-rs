@@ -1,4 +1,5 @@
 use crate::save::models::{Obligation, Reserve};
+use aggregation::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
 use prettytable::{row, Table};
 use solana_client::{
@@ -139,7 +140,70 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
         table.printstd();
     }
 
-    pub fn get_obligations(&self, owner_pubkey: &str) -> Result<(), String> {
+    pub fn get_user_obligations(&self, owner_pubkey: &str) -> Result<Vec<UserObligation>, String> {
+        let obligations = self.get_obligations(owner_pubkey)?;
+        let mut user_obligations = Vec::new();
+
+        for obligation in obligations {
+            // Process deposits
+            for deposit in obligation.deposits {
+                let reserve_account = self
+                    .program
+                    .rpc()
+                    .get_account(&Pubkey::new_from_array(deposit.deposit_reserve.to_bytes()))
+                    .map_err(|e| format!("Failed to fetch reserve: {}", e))?;
+
+                let reserve = Reserve::unpack(&reserve_account.data)
+                    .map_err(|e| format!("Failed to unpack reserve: {}", e))?;
+
+                let exchange_rate = reserve
+                    .collateral_exchange_rate()
+                    .map_err(|e| format!("Failed to get collateral exchange rate: {}", e))?;
+
+                let amount =
+                    exchange_rate.collateral_to_liquidity(deposit.deposited_amount).unwrap_or(0);
+
+                user_obligations.push(UserObligation {
+                    symbol: reserve.liquidity.mint_pubkey.to_string(),
+                    market_price_sf: deposit.market_value.try_round_u64().unwrap_or(0),
+                    mint: Pubkey::new_from_array(reserve.liquidity.mint_pubkey.to_bytes()),
+                    mint_decimals: reserve.liquidity.mint_decimals as u32,
+                    amount,
+                    protocol_name: "Solend".to_string(),
+                    market_name: "Main Pool".to_string(), // Could be improved by looking up actual pool name
+                    obligation_type: ObligationType::Asset,
+                });
+            }
+
+            // Process borrows
+            for borrow in obligation.borrows {
+                let reserve_account = self
+                    .program
+                    .rpc()
+                    .get_account(&Pubkey::new_from_array(borrow.borrow_reserve.to_bytes()))
+                    .map_err(|e| format!("Failed to fetch reserve: {}", e))?;
+
+                let reserve = Reserve::unpack(&reserve_account.data)
+                    .map_err(|e| format!("Failed to unpack reserve: {}", e))?;
+
+                user_obligations.push(UserObligation {
+                    symbol: reserve.liquidity.mint_pubkey.to_string(),
+                    market_price_sf: borrow.market_value.try_round_u64().unwrap_or(0),
+                    mint: Pubkey::new_from_array(reserve.liquidity.mint_pubkey.to_bytes()),
+                    mint_decimals: reserve.liquidity.mint_decimals as u32,
+                    amount: borrow.borrowed_amount_wads.try_round_u64().unwrap_or(0),
+                    protocol_name: "Solend".to_string(),
+                    market_name: "Main Pool".to_string(), // Could be improved by looking up actual pool name
+                    obligation_type: ObligationType::Liability,
+                });
+            }
+        }
+
+        Ok(user_obligations)
+    }
+
+    fn get_obligations(&self, owner_pubkey: &str) -> Result<Vec<Obligation>, String> {
+        let mut ret = Vec::new();
         let owner = owner_pubkey.parse::<Pubkey>().map_err(|e| format!("Invalid pubkey: {}", e))?;
 
         let filters = vec![
@@ -168,7 +232,7 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
 
         if obligations.is_empty() {
             println!("No Solend obligations found for {}", owner_pubkey);
-            return Ok(());
+            return Ok(ret);
         }
 
         println!("\nSolend Obligations for {}:", owner_pubkey);
@@ -182,6 +246,11 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
             if obligation.owner.to_string() != owner.to_string() {
                 continue;
             }
+
+            if obligation.deposits.is_empty() && obligation.borrows.is_empty() {
+                continue;
+            }
+
             println!("\nObligation address: {}", pubkey);
             println!("Owner: {}", obligation.owner);
             println!("Lending Market: {}", obligation.lending_market);
@@ -233,8 +302,9 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
                     println!("  Market Value: {:.3}", borrow.market_value);
                 }
             }
+            ret.push(obligation);
         }
 
-        Ok(())
+        Ok(ret)
     }
 }

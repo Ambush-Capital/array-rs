@@ -1,37 +1,40 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, ops::Deref, str::FromStr};
 
 use crate::{
     kamino::{client::KaminoClient, utils::fraction::Fraction},
     marginfi::client::MarginfiClient,
     save::{client::SaveClient, error::LendingError},
 };
-use aggregation::{LendingReserve, MintAsset, UserObligation};
+use aggregation::{LendingReserve, MintAsset, ObligationType, UserObligation};
 use anchor_client::{Client, Cluster, Program};
 use drift::{client::DriftClient, error::ErrorCode};
 use mpl_token_metadata::accounts::Metadata;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
-    signature::{read_keypair_file, Keypair},
+    signature::{read_keypair_file, Keypair, Signer},
 };
 
 pub const SUPPLY_SCALE_FACTOR: f64 = 1_000_000_000_000_000_000_000_000.0;
 pub const MARGINFI_SCALE_FACTOR: f64 = 1_000_000_000_000_000_000.0;
 
-#[derive(Debug, Clone)]
-pub struct LendingMarketAggregator {
+pub struct LendingMarketAggregator<C> {
     pub assets: Vec<MintAsset>,
     metadata_cache: HashMap<Pubkey, (String, String)>,
+    save_client: SaveClient<C>,
+    marginfi_client: MarginfiClient<C>,
+    kamino_client: KaminoClient<C>,
+    drift_client: DriftClient<C>,
 }
 
-impl Default for LendingMarketAggregator {
+impl<C: Clone + Deref<Target = impl Signer>> Default for LendingMarketAggregator<C> {
     fn default() -> Self {
-        Self::new()
+        unimplemented!("Default implementation not available - use new() instead")
     }
 }
 
-impl LendingMarketAggregator {
-    pub fn new() -> Self {
+impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
+    pub fn new(client: &Client<C>) -> Self {
         let assets = vec![
             MintAsset {
                 name: "USDC".to_string(),
@@ -84,7 +87,14 @@ impl LendingMarketAggregator {
             // },
         ];
 
-        Self { assets, metadata_cache: HashMap::new() }
+        Self {
+            assets,
+            metadata_cache: HashMap::new(),
+            save_client: SaveClient::new(client),
+            marginfi_client: MarginfiClient::new(client),
+            kamino_client: KaminoClient::new(client),
+            drift_client: DriftClient::new(client),
+        }
     }
 
     pub fn load_markets(&mut self) -> ArrayResult<()> {
@@ -105,29 +115,24 @@ impl LendingMarketAggregator {
 
         let program = client.program(solend_program_id).expect("Failed to create program client");
 
-        // Initialize protocol clients
-        let mut save_client = SaveClient::new(&client);
-        let mut marginfi_client = MarginfiClient::new(&client);
-        let mut kamino_client = KaminoClient::new(&client);
-        let mut drift_client = DriftClient::new(&client);
-
         println!("Starting loading all lending markets...");
         // Load Save/Kamino reserves
         println!("Loading Save reserves");
-        save_client.load_all_reserves()?;
+        self.save_client.load_all_reserves()?;
 
         println!("Loading Kamino reserves");
-        kamino_client.load_markets()?;
+        self.kamino_client.load_markets()?;
 
         println!("Loading Marginfi reserves");
-        marginfi_client.load_banks_for_group()?;
+        self.marginfi_client.load_banks_for_group()?;
 
         println!("Loading Drift reserves");
-        drift_client.load_spot_markets()?;
+        self.drift_client.load_spot_markets()?;
 
         println!("Done loading all lending markets.");
 
-        for pool in save_client.pools {
+        // TODO: the clone on the loop here feels lazy, I have to move the pub key stuff out b/c it needs a mutable self
+        for pool in &self.save_client.pools.clone() {
             let valid_collateral: Vec<MintAsset> = pool
                 .reserves
                 .iter()
@@ -148,7 +153,7 @@ impl LendingMarketAggregator {
                 })
                 .collect();
 
-            for reserve in pool.reserves {
+            for reserve in &pool.reserves {
                 let mint_pubkey =
                     Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
                 // Convert reserve to LendingReserve and add to correct asset
@@ -190,9 +195,9 @@ impl LendingMarketAggregator {
         }
 
         // Load Marginfi banks
-        for (_, bank) in marginfi_client.banks {
+        for (_, bank) in &self.marginfi_client.banks {
             if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == bank.mint) {
-                let interest_rates = bank.get_interest_rate(&marginfi_client.group).unwrap();
+                let interest_rates = bank.get_interest_rate(&self.marginfi_client.group).unwrap();
 
                 const SCALE_SHIFT: u32 = 12;
 
@@ -232,7 +237,7 @@ impl LendingMarketAggregator {
         }
 
         // Load Kamino markets
-        for (_, market, reserves) in kamino_client.markets {
+        for (_, market, reserves) in &self.kamino_client.markets.clone() {
             let market_name = String::from_utf8(
                 market.name.iter().take_while(|&&c| c != 0).copied().collect::<Vec<u8>>(),
             )
@@ -282,7 +287,7 @@ impl LendingMarketAggregator {
         let mut pool_assets: HashMap<u8, Vec<MintAsset>> = HashMap::new();
 
         // Group spot markets by pool_id and create MintAssets
-        for (_, market) in &drift_client.spot_markets {
+        for (_, market) in &self.drift_client.spot_markets.clone() {
             if market.optimal_utilization > 0 {
                 let mint_pubkey = market.mint;
                 let (name, symbol) = self
@@ -301,7 +306,7 @@ impl LendingMarketAggregator {
             }
         }
 
-        for (_, market) in &drift_client.spot_markets {
+        for (_, market) in &self.drift_client.spot_markets {
             let mint_pubkey = market.mint;
             if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == mint_pubkey) {
                 let market_name = String::from_utf8(
@@ -341,8 +346,56 @@ impl LendingMarketAggregator {
         Ok(())
     }
 
-    fn get_user_obligations(&self, wallet_pubkey: &str) -> ArrayResult<Vec<UserObligation>> {
-        Ok(vec![])
+    pub fn get_user_obligations(&self, wallet_pubkey: &str) -> ArrayResult<Vec<UserObligation>> {
+        let mut obligations = Vec::new();
+
+        // Get Save obligations
+        if let Ok(save_obligations) = self.save_client.get_user_obligations(wallet_pubkey) {
+            obligations.extend(save_obligations);
+        }
+
+        // Get Marginfi obligations
+        if let Ok(marginfi_obligations) = self.marginfi_client.get_user_obligations(wallet_pubkey) {
+            obligations.extend(marginfi_obligations);
+        }
+
+        // Get Kamino obligations
+        if let Ok(kamino_obligations) = self.kamino_client.get_user_obligations(wallet_pubkey) {
+            obligations.extend(kamino_obligations);
+        }
+
+        // Get Drift obligations
+        if let Ok(drift_obligations) = self.drift_client.get_user_obligations(wallet_pubkey) {
+            obligations.extend(drift_obligations);
+        }
+
+        Ok(obligations)
+    }
+
+    pub fn print_obligations(&self, obligations: &[UserObligation]) {
+        use prettytable::{row, Table};
+
+        let mut table = Table::new();
+        table.add_row(row!["Protocol", "Market", "Token", "Amount", "Market Value", "Type"]);
+
+        for obligation in obligations {
+            table.add_row(row![
+                obligation.protocol_name,
+                obligation.market_name,
+                obligation.symbol,
+                format!(
+                    "{:.3}",
+                    obligation.amount as f64 / 10_f64.powi(obligation.mint_decimals as i32)
+                ),
+                format!("{:.2}", obligation.market_price_sf as f64 / SUPPLY_SCALE_FACTOR),
+                match obligation.obligation_type {
+                    ObligationType::Asset => "Supply",
+                    ObligationType::Liability => "Borrow",
+                }
+            ]);
+        }
+
+        table.printstd();
     }
 
     fn load_token_metadata(

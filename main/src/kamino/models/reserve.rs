@@ -50,7 +50,7 @@ impl From<BigFractionBytes> for BigFraction {
 // TODO: fix this
 // static_assertions::const_assert_eq!(RESERVE_SIZE, std::mem::size_of::<Reserve>());
 static_assertions::const_assert_eq!(0, std::mem::size_of::<Reserve>() % 8);
-#[derive(PartialEq, Derivative, BorshSerialize, BorshDeserialize, Zeroable)]
+#[derive(PartialEq, Derivative, BorshSerialize, BorshDeserialize, Zeroable, Clone)]
 #[derivative(Debug)]
 #[repr(C)]
 pub struct Reserve {
@@ -318,7 +318,7 @@ pub struct InitReserveParams {
     pub config: Box<ReserveConfig>,
 }
 
-#[derive(Debug, PartialEq, Eq, Zeroable, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, PartialEq, Eq, Zeroable, BorshSerialize, BorshDeserialize, Clone)]
 #[repr(C)]
 pub struct ReserveLiquidity {
     pub mint_pubkey: Pubkey,
@@ -426,7 +426,7 @@ pub struct NewReserveLiquidityParams {
     pub market_price_sf: u128,
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Zeroable, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Zeroable, BorshSerialize, BorshDeserialize, Clone)]
 #[repr(C)]
 pub struct ReserveCollateral {
     pub mint_pubkey: Pubkey,
@@ -516,6 +516,7 @@ static_assertions::const_assert_eq!(0, std::mem::size_of::<ReserveConfig>() % 8)
     Zeroable,
     Serialize,
     Deserialize,
+    Clone,
 )]
 #[derivative(Debug)]
 #[serde(deny_unknown_fields)]
@@ -607,6 +608,7 @@ pub enum ReserveStatus {
     Zeroable,
     Serialize,
     Deserialize,
+    Clone,
 )]
 #[repr(C)]
 pub struct WithdrawalCaps {
@@ -616,7 +618,7 @@ pub struct WithdrawalCaps {
     pub config_interval_length_seconds: u64,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Default, PartialEq, Eq, Derivative, Zeroable)]
+#[derive(BorshDeserialize, BorshSerialize, Default, PartialEq, Eq, Derivative, Zeroable, Clone)]
 #[derivative(Debug)]
 #[repr(C)]
 pub struct ReserveFees {

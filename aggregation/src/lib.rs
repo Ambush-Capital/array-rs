@@ -40,7 +40,7 @@ pub enum ObligationType {
 #[derive(Debug, Clone)]
 pub struct UserObligation {
     pub symbol: String,
-    pub market_price_sf: i64,
+    pub market_price_sf: u64,
     pub mint: Pubkey,
     pub mint_decimals: u32,
     pub amount: u64,

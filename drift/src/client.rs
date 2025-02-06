@@ -123,7 +123,7 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
                         .to_string();
                     (
                         name.clone(),
-                        market.historical_oracle_data.last_oracle_price,
+                        market.historical_oracle_data.last_oracle_price as u64,
                         market.mint,
                         market.decimals,
                         name,

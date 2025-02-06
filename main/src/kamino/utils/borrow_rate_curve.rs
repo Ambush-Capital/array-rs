@@ -7,7 +7,7 @@ use crate::kamino::utils::fraction::{Fraction, FractionExtra};
 
 pub const MAX_UTILIZATION_RATE_BPS: u32 = FULL_BPS as u32;
 
-#[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Eq, Zeroable)]
+#[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Eq, Zeroable, Clone)]
 #[repr(C)]
 pub struct BorrowRateCurve {
     pub points: [CurvePoint; 11],
@@ -58,8 +58,19 @@ pub struct CurveSegment {
     pub start_point: CurvePoint,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Default, PartialEq, Eq, Zeroable, Clone, Copy)]
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(
+    BorshSerialize,
+    BorshDeserialize,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Zeroable,
+    Clone,
+    Copy,
+    serde::Deserialize,
+    serde::Serialize,
+)]
 #[serde(deny_unknown_fields)]
 #[repr(C)]
 pub struct CurvePoint {
@@ -69,10 +80,7 @@ pub struct CurvePoint {
 
 impl CurvePoint {
     pub fn new(utilization_rate_bps: u32, borrow_rate_bps: u32) -> Self {
-        Self {
-            utilization_rate_bps,
-            borrow_rate_bps,
-        }
+        Self { utilization_rate_bps, borrow_rate_bps }
     }
 }
 
@@ -85,19 +93,15 @@ impl CurveSegment {
         if end.utilization_rate_bps <= start.utilization_rate_bps {
             return Err(LendingError::InvalidBorrowRateCurvePoint);
         }
-        let slope_denom = end
-            .utilization_rate_bps
-            .checked_sub(start.utilization_rate_bps)
-            .unwrap();
+        let slope_denom = end.utilization_rate_bps.checked_sub(start.utilization_rate_bps).unwrap();
 
-        Ok(CurveSegment {
-            slope_nom,
-            slope_denom,
-            start_point: start,
-        })
+        Ok(CurveSegment { slope_nom, slope_denom, start_point: start })
     }
 
-    pub(self) fn get_borrow_rate(&self, utilization_rate: Fraction) -> Result<Fraction, LendingError> {
+    pub(self) fn get_borrow_rate(
+        &self,
+        utilization_rate: Fraction,
+    ) -> Result<Fraction, LendingError> {
         let start_utilization_rate = Fraction::from_bps(self.start_point.utilization_rate_bps);
 
         let coef = utilization_rate
@@ -164,14 +168,8 @@ impl BorrowRateCurve {
 
     pub fn new_flat(borrow_rate_bps: u32) -> Self {
         let points = [
-            CurvePoint {
-                utilization_rate_bps: 0,
-                borrow_rate_bps,
-            },
-            CurvePoint {
-                utilization_rate_bps: MAX_UTILIZATION_RATE_BPS,
-                borrow_rate_bps,
-            },
+            CurvePoint { utilization_rate_bps: 0, borrow_rate_bps },
+            CurvePoint { utilization_rate_bps: MAX_UTILIZATION_RATE_BPS, borrow_rate_bps },
         ];
         Self::from_points(&points).unwrap()
     }
@@ -191,10 +189,7 @@ impl BorrowRateCurve {
 
         let points: &[CurvePoint] = if optimal_utilization_rate == 0 {
             alloc_1 = [
-                CurvePoint {
-                    utilization_rate_bps: 0,
-                    borrow_rate_bps: optimal_rate,
-                },
+                CurvePoint { utilization_rate_bps: 0, borrow_rate_bps: optimal_rate },
                 CurvePoint {
                     utilization_rate_bps: MAX_UTILIZATION_RATE_BPS,
                     borrow_rate_bps: max_rate,
@@ -203,10 +198,7 @@ impl BorrowRateCurve {
             &alloc_1
         } else if optimal_utilization_rate == MAX_UTILIZATION_RATE_BPS {
             alloc_1 = [
-                CurvePoint {
-                    utilization_rate_bps: 0,
-                    borrow_rate_bps: base_rate,
-                },
+                CurvePoint { utilization_rate_bps: 0, borrow_rate_bps: base_rate },
                 CurvePoint {
                     utilization_rate_bps: MAX_UTILIZATION_RATE_BPS,
                     borrow_rate_bps: optimal_rate,
@@ -215,10 +207,7 @@ impl BorrowRateCurve {
             &alloc_1
         } else {
             alloc_2 = [
-                CurvePoint {
-                    utilization_rate_bps: 0,
-                    borrow_rate_bps: base_rate,
-                },
+                CurvePoint { utilization_rate_bps: 0, borrow_rate_bps: base_rate },
                 CurvePoint {
                     utilization_rate_bps: optimal_utilization_rate,
                     borrow_rate_bps: optimal_rate,
@@ -234,11 +223,8 @@ impl BorrowRateCurve {
     }
 
     pub fn get_borrow_rate(&self, utilization_rate: Fraction) -> Result<Fraction, LendingError> {
-        let utilization_rate = if utilization_rate > Fraction::ONE {
-            Fraction::ONE
-        } else {
-            utilization_rate
-        };
+        let utilization_rate =
+            if utilization_rate > Fraction::ONE { Fraction::ONE } else { utilization_rate };
 
         let utilization_rate_bps: u32 = utilization_rate.to_bps().unwrap();
 

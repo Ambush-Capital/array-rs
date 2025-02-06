@@ -6,16 +6,26 @@ use serde_values::*;
 use solana_program::pubkey::Pubkey;
 
 use crate::kamino::utils::consts::{
-    CLOSE_TO_INSOLVENCY_RISKY_LTV, GLOBAL_ALLOWED_BORROW_VALUE,
-    GLOBAL_UNHEALTHY_BORROW_VALUE, LENDING_MARKET_SIZE, LIQUIDATION_CLOSE_FACTOR,
-    LIQUIDATION_CLOSE_VALUE, MAX_LIQUIDATABLE_VALUE_AT_ONCE, MIN_NET_VALUE_IN_OBLIGATION
+    CLOSE_TO_INSOLVENCY_RISKY_LTV, GLOBAL_ALLOWED_BORROW_VALUE, GLOBAL_UNHEALTHY_BORROW_VALUE,
+    LENDING_MARKET_SIZE, LIQUIDATION_CLOSE_FACTOR, LIQUIDATION_CLOSE_VALUE,
+    MAX_LIQUIDATABLE_VALUE_AT_ONCE, MIN_NET_VALUE_IN_OBLIGATION,
 };
 
-use crate::kamino::utils::serde_helpers::{serde_string, serde_utf_string, serde_bool_u8};
+use crate::kamino::utils::serde_helpers::{serde_bool_u8, serde_string, serde_utf_string};
 
 static_assertions::const_assert_eq!(LENDING_MARKET_SIZE, std::mem::size_of::<LendingMarket>());
 static_assertions::const_assert_eq!(0, std::mem::size_of::<LendingMarket>() % 8);
-#[derive(BorshSerialize, BorshDeserialize, PartialEq, Eq, Derivative, Zeroable, Deserialize, Serialize)]
+#[derive(
+    BorshSerialize,
+    BorshDeserialize,
+    PartialEq,
+    Eq,
+    Derivative,
+    Zeroable,
+    Deserialize,
+    Serialize,
+    Clone,
+)]
 #[derivative(Debug)]
 #[serde(deny_unknown_fields)]
 #[repr(C)]
@@ -49,7 +59,7 @@ pub struct LendingMarket {
     pub max_liquidatable_debt_market_value_at_once: u64,
     pub global_unhealthy_borrow_value: u64,
     pub global_allowed_borrow_value: u64,
-    
+
     #[serde(with = "serde_string", default)]
     pub risk_council: Pubkey,
 
@@ -61,7 +71,10 @@ pub struct LendingMarket {
     #[serde(skip_deserializing, skip_serializing, default = "default_padding_90")]
     pub elevation_group_padding: [u64; 90],
 
-    #[serde(serialize_with = "serialize_min_net_value", deserialize_with = "deserialize_min_net_value")]
+    #[serde(
+        serialize_with = "serialize_min_net_value",
+        deserialize_with = "deserialize_min_net_value"
+    )]
     pub min_net_value_in_obligation_sf: u128,
 
     pub min_value_skip_liquidation_ltv_bf_checks: u64,
@@ -74,11 +87,9 @@ pub struct LendingMarket {
     pub padding1: [u64; 173],
 }
 
-
 fn default_padding_173() -> [u64; 173] {
     [0; 173]
 }
-
 
 fn default_padding_90() -> [u64; 90] {
     [0; 90]
@@ -115,7 +126,6 @@ impl Default for LendingMarket {
     }
 }
 
-
 #[derive(BorshSerialize, BorshDeserialize, Derivative, PartialEq, Eq, Zeroable, Copy, Clone)]
 #[derivative(Debug)]
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -147,7 +157,6 @@ impl Default for ElevationGroup {
         default
     }
 }
-
 
 mod serde_values {
     use std::result::Result;

@@ -1,16 +1,26 @@
-use std::fmt::Formatter;
+use crate::kamino::utils::consts::{NULL_PUBKEY, TOKEN_INFO_SIZE};
+use crate::kamino::utils::errors::LendingError;
+use crate::kamino::utils::serde_helpers::serde_string;
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::Zeroable;
 use serde::{Deserialize, Serialize};
 use solana_program::{account_info::AccountInfo, pubkey::Pubkey};
-use crate::kamino::utils::consts::{NULL_PUBKEY, TOKEN_INFO_SIZE};
-use crate::kamino::utils::errors::LendingError;
-use crate::kamino::utils::serde_helpers::serde_string;
+use std::fmt::Formatter;
 
 static_assertions::const_assert_eq!(TOKEN_INFO_SIZE, std::mem::size_of::<TokenInfo>());
 static_assertions::const_assert_eq!(0, std::mem::size_of::<TokenInfo>() % 8);
 
-#[derive(BorshDeserialize, BorshSerialize, PartialEq, Eq, Default, Deserialize, Serialize, Zeroable)]
+#[derive(
+    BorshDeserialize,
+    BorshSerialize,
+    PartialEq,
+    Eq,
+    Default,
+    Deserialize,
+    Serialize,
+    Zeroable,
+    Clone,
+)]
 #[serde(deny_unknown_fields)]
 #[repr(C)]
 pub struct TokenInfo {
@@ -150,13 +160,22 @@ impl TokenInfo {
     }
 
     pub fn symbol(&self) -> &str {
-        std::str::from_utf8(&self.name)
-            .unwrap_or("InvalidTokenName")
-            .trim_end_matches('\0')
+        std::str::from_utf8(&self.name).unwrap_or("InvalidTokenName").trim_end_matches('\0')
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Eq, Default, Deserialize, Serialize, Zeroable)]
+#[derive(
+    BorshDeserialize,
+    BorshSerialize,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    Deserialize,
+    Serialize,
+    Zeroable,
+    Clone,
+)]
 #[serde(deny_unknown_fields)]
 #[repr(C)]
 pub struct PriceHeuristic {
@@ -165,7 +184,9 @@ pub struct PriceHeuristic {
     pub exp: u64,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Eq, Deserialize, Serialize, Zeroable)]
+#[derive(
+    BorshDeserialize, BorshSerialize, Debug, PartialEq, Eq, Deserialize, Serialize, Zeroable, Clone,
+)]
 #[serde(deny_unknown_fields)]
 #[repr(C)]
 pub struct ScopeConfiguration {
@@ -202,7 +223,18 @@ impl ScopeConfiguration {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Eq, Default, Deserialize, Serialize, Zeroable)]
+#[derive(
+    BorshDeserialize,
+    BorshSerialize,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    Deserialize,
+    Serialize,
+    Zeroable,
+    Clone,
+)]
 #[serde(deny_unknown_fields)]
 #[repr(C)]
 pub struct SwitchboardConfiguration {
@@ -222,7 +254,18 @@ impl SwitchboardConfiguration {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Eq, Default, Deserialize, Serialize, Zeroable)]
+#[derive(
+    BorshDeserialize,
+    BorshSerialize,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    Deserialize,
+    Serialize,
+    Zeroable,
+    Clone,
+)]
 #[repr(transparent)]
 pub struct PythConfiguration {
     #[serde(with = "serde_string", default)]
@@ -242,9 +285,7 @@ mod serde_name {
     where
         S: Serializer,
     {
-        let s = std::str::from_utf8(name)
-            .unwrap_or("InvalidTokenName")
-            .trim_end_matches('\0');
+        let s = std::str::from_utf8(name).unwrap_or("InvalidTokenName").trim_end_matches('\0');
         serializer.serialize_str(s)
     }
 
