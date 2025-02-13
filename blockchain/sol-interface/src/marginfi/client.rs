@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use aggregation::{ObligationType, UserObligation};
+use common::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
 use anchor_lang::AnchorDeserialize;
 use fixed::types::I80F48;
@@ -109,7 +109,7 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
                 obligations.push(UserObligation {
                     symbol: "".to_string(),
                     market_price_sf: 0,
-                    mint: bank.mint,
+                    mint: bank.mint.to_string(),
                     mint_decimals: bank.mint_decimals as u32,
                     amount: I80F48::to_num(amount),
                     protocol_name: "Marginfi".to_string(),

@@ -3,12 +3,7 @@
 use anchor_client::{Client, Cluster};
 use solana_sdk::{commitment_config::CommitmentConfig, signature::read_keypair_file};
 
-use aggregator::LendingMarketAggregator;
-
-pub mod aggregator;
-pub mod kamino;
-pub mod marginfi;
-pub mod save;
+use sol_interface::aggregator::LendingMarketAggregator;
 
 fn main() {
     env_logger::init();

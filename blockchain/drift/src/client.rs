@@ -1,6 +1,6 @@
 use crate::error::ErrorCode;
 use crate::models::idl::types::{SpotBalanceType, SpotPosition};
-use aggregation::{ObligationType, UserObligation};
+use common::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
 use anchor_lang::AccountDeserialize;
 use log::{debug, info};
@@ -134,7 +134,7 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
             obligations.push(UserObligation {
                 symbol,
                 market_price_sf,
-                mint,
+                mint: mint.to_string(),
                 mint_decimals,
                 amount: position.scaled_balance,
                 protocol_name: "Drift".to_string(),

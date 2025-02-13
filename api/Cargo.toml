@@ -1,0 +1,16 @@
+[package]
+name = "api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.95"
+axum = "0.8.1"
+chrono = { version = "0.4.39", features = ["serde"] }
+common = { path = "../common" }
+reqwest = { version = "0.12.12", features = ["json"] }
+sqlx = { version = "0.8.3", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
+tokio = { version = "1.43.0", features = ["full"] }
+serde = { version = "1.0.217", features = ["derive"] }
+log = "0.4"
+env_logger = "0.11"

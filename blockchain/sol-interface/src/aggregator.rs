@@ -1,26 +1,21 @@
-use std::{collections::HashMap, ops::Deref, str::FromStr};
+use std::{ops::Deref, str::FromStr};
 
 use crate::{
     kamino::{client::KaminoClient, utils::fraction::Fraction},
     marginfi::client::MarginfiClient,
     save::{client::SaveClient, error::LendingError},
 };
-use aggregation::{LendingReserve, MintAsset, ObligationType, UserObligation};
-use anchor_client::{Client, Cluster, Program};
+use anchor_client::Client;
+use common::{LendingReserve, MintAsset, ObligationType, UserObligation};
 use drift::{client::DriftClient, error::ErrorCode};
-use mpl_token_metadata::accounts::Metadata;
-use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    pubkey::Pubkey,
-    signature::{read_keypair_file, Keypair, Signer},
-};
+use solana_sdk::{pubkey::Pubkey, signature::Signer};
 
 pub const SUPPLY_SCALE_FACTOR: f64 = 1_000_000_000_000_000_000_000_000.0;
 pub const MARGINFI_SCALE_FACTOR: f64 = 1_000_000_000_000_000_000.0;
 
 pub struct LendingMarketAggregator<C> {
     pub assets: Vec<MintAsset>,
-    metadata_cache: HashMap<Pubkey, (String, String)>,
+    // metadata_cache: HashMap<Pubkey, (String, String)>,
     save_client: SaveClient<C>,
     marginfi_client: MarginfiClient<C>,
     kamino_client: KaminoClient<C>,
@@ -35,7 +30,18 @@ impl<C: Clone + Deref<Target = impl Signer>> Default for LendingMarketAggregator
 
 impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
     pub fn new(client: &Client<C>) -> Self {
-        let assets = vec![
+        Self {
+            assets: Self::get_valid_assets(),
+            // metadata_cache: HashMap::new(),
+            save_client: SaveClient::new(client),
+            marginfi_client: MarginfiClient::new(client),
+            kamino_client: KaminoClient::new(client),
+            drift_client: DriftClient::new(client),
+        }
+    }
+
+    fn get_valid_assets() -> Vec<MintAsset> {
+        vec![
             MintAsset {
                 name: "USDC".to_string(),
                 symbol: "USD Coin".to_string(),
@@ -85,37 +91,33 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
             //     mint: "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo".parse().unwrap(),
             //     lending_reserves: vec![],
             // },
-        ];
-
-        Self {
-            assets,
-            metadata_cache: HashMap::new(),
-            save_client: SaveClient::new(client),
-            marginfi_client: MarginfiClient::new(client),
-            kamino_client: KaminoClient::new(client),
-            drift_client: DriftClient::new(client),
-        }
+        ]
     }
 
     pub fn load_markets(&mut self) -> ArrayResult<()> {
         // Initialize clients
-        let rpc_url = std::env::var("RPC_URL")
-            .map_err(|e| format!("Missing RPC_URL environment variable: {}", e))?;
-        let payer = read_keypair_file("/Users/aaronhenshaw/.config/solana/id.json")?;
-        let client = Client::new_with_options(
-            Cluster::Custom(rpc_url.to_string(), rpc_url.to_string()),
-            &payer,
-            CommitmentConfig::confirmed(),
-        );
+        // let rpc_url = std::env::var("RPC_URL")
+        //     .map_err(|e| format!("Missing RPC_URL environment variable: {}", e))?;
+        // let payer = read_keypair_file("/Users/aaronhenshaw/.config/solana/id.json")?;
+        // let client = Client::new_with_options(
+        //     Cluster::Custom(rpc_url.to_string(), rpc_url.to_string()),
+        //     &payer,
+        //     CommitmentConfig::confirmed(),
+        // );
 
-        // todo make this a little less stupid for the metadata fetch
-        let solend_program_id = "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo"
-            .parse()
-            .expect("Failed to parse Solend program ID");
+        // // todo make this a little less stupid for the metadata fetch
+        // let solend_program_id = "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo"
+        //     .parse()
+        //     .expect("Failed to parse Solend program ID");
 
-        let program = client.program(solend_program_id).expect("Failed to create program client");
+        // let program = client.program(solend_program_id).expect("Failed to create program client");
 
-        println!("Starting loading all lending markets...");
+        self.assets = Self::get_valid_assets(); //reset this guy
+
+        // Get current slot from RPC
+        let current_slot = self.save_client.program.rpc().get_slot()?;
+
+        println!("Starting loading all lending markets from slot {}...", current_slot);
         // Load Save/Kamino reserves
         println!("Loading Save reserves");
         self.save_client.load_all_reserves()?;
@@ -133,31 +135,33 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
 
         // TODO: the clone on the loop here feels lazy, I have to move the pub key stuff out b/c it needs a mutable self
         for pool in &self.save_client.pools.clone() {
-            let valid_collateral: Vec<MintAsset> = pool
-                .reserves
-                .iter()
-                .filter(|reserve| reserve.config.liquidation_threshold > 0)
-                .map(|reserve| {
-                    let mint_pubkey =
-                        Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
-                    let (name, symbol) = self
-                        .load_token_metadata(&program, &mint_pubkey)
-                        .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
-                    MintAsset {
-                        name,
-                        symbol,
-                        market_price_sf: 0,
-                        mint: Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap(),
-                        lending_reserves: vec![],
-                    }
-                })
-                .collect();
+            // let valid_collateral: Vec<MintAsset> = pool
+            //     .reserves
+            //     .iter()
+            //     .filter(|reserve| reserve.config.liquidation_threshold > 0)
+            //     .map(|reserve| {
+            //         let mint_pubkey =
+            //             Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
+            //         let (name, symbol) = self
+            //             .load_token_metadata(&program, &mint_pubkey)
+            //             .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
+            //         MintAsset {
+            //             name,
+            //             symbol,
+            //             market_price_sf: 0,
+            //             mint: reserve.liquidity.mint_pubkey.to_string(),
+            //             lending_reserves: vec![],
+            //         }
+            //     })
+            //     .collect();
 
             for reserve in &pool.reserves {
                 let mint_pubkey =
                     Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
                 // Convert reserve to LendingReserve and add to correct asset
-                if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == mint_pubkey) {
+                if let Some(asset) =
+                    self.assets.iter_mut().find(|a| a.mint == mint_pubkey.to_string())
+                {
                     asset.lending_reserves.push(LendingReserve {
                         protocol_name: "Save".to_string(),
                         market_name: pool.name.clone(),
@@ -188,7 +192,8 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                         supply_apy: scale_to_fraction(reserve.current_supply_apy().to_scaled_val())
                             .unwrap()
                             .to_bits(),
-                        collateral_assets: valid_collateral.clone(),
+                        collateral_assets: vec![],
+                        slot: current_slot,
                     });
                 }
             }
@@ -196,7 +201,7 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
 
         // Load Marginfi banks
         for (_, bank) in &self.marginfi_client.banks {
-            if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == bank.mint) {
+            if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == bank.mint.to_string()) {
                 let interest_rates = bank.get_interest_rate(&self.marginfi_client.group).unwrap();
 
                 const SCALE_SHIFT: u32 = 12;
@@ -232,6 +237,7 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                         .unwrap() as u128,
 
                     collateral_assets: vec![], //its basically all the collateral
+                    slot: current_slot,
                 });
             }
         }
@@ -243,29 +249,31 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
             )
             .unwrap_or_default();
 
-            let valid_collateral: Vec<MintAsset> = reserves
-                .iter()
-                .filter(|(_, reserve)| reserve.config.liquidation_threshold_pct > 0)
-                .map(|(_, reserve)| {
-                    let mint_pubkey =
-                        Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
-                    let (name, symbol) = self
-                        .load_token_metadata(&program, &mint_pubkey)
-                        .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
-                    MintAsset {
-                        name,
-                        symbol,
-                        market_price_sf: 0,
-                        mint: Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap(),
-                        lending_reserves: vec![],
-                    }
-                })
-                .collect();
+            // let valid_collateral: Vec<MintAsset> = reserves
+            //     .iter()
+            //     .filter(|(_, reserve)| reserve.config.liquidation_threshold_pct > 0)
+            //     .map(|(_, reserve)| {
+            //         let mint_pubkey =
+            //             Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
+            //         let (name, symbol) = self
+            //             .load_token_metadata(&program, &mint_pubkey)
+            //             .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
+            //         MintAsset {
+            //             name,
+            //             symbol,
+            //             market_price_sf: 0,
+            //             mint: reserve.liquidity.mint_pubkey.to_string(),
+            //             lending_reserves: vec![],
+            //         }
+            //     })
+            //     .collect();
 
             for (_, reserve) in reserves {
                 let mint_pubkey =
                     Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
-                if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == mint_pubkey) {
+                if let Some(asset) =
+                    self.assets.iter_mut().find(|a| a.mint == mint_pubkey.to_string())
+                {
                     asset.lending_reserves.push(LendingReserve {
                         protocol_name: "Kamino".to_string(),
                         market_name: market_name.clone(),
@@ -277,38 +285,40 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                         borrow_rate: Fraction::to_bits(reserve.current_borrow_rate().unwrap()),
                         borrow_apy: Fraction::to_bits(reserve.current_borrow_apy()),
                         supply_apy: Fraction::to_bits(reserve.current_supply_apy()),
-                        collateral_assets: valid_collateral.clone(),
+                        collateral_assets: vec![],
+                        slot: current_slot,
                     });
                 }
             }
         }
 
-        // Load Drift markets
-        let mut pool_assets: HashMap<u8, Vec<MintAsset>> = HashMap::new();
+        // // Load Drift markets
+        // let mut pool_assets: HashMap<u8, Vec<MintAsset>> = HashMap::new();
 
-        // Group spot markets by pool_id and create MintAssets
-        for (_, market) in &self.drift_client.spot_markets.clone() {
-            if market.optimal_utilization > 0 {
-                let mint_pubkey = market.mint;
-                let (name, symbol) = self
-                    .load_token_metadata(&program, &mint_pubkey)
-                    .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
+        // // Group spot markets by pool_id and create MintAssets
+        // for (_, market) in &self.drift_client.spot_markets.clone() {
+        //     if market.optimal_utilization > 0 {
+        //         let mint_pubkey = market.mint;
+        //         let (name, symbol) = self
+        //             .load_token_metadata(&program, &mint_pubkey)
+        //             .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
 
-                let mint_asset = MintAsset {
-                    name,
-                    symbol,
-                    market_price_sf: 0,
-                    mint: mint_pubkey,
-                    lending_reserves: vec![],
-                };
+        //         let mint_asset = MintAsset {
+        //             name,
+        //             symbol,
+        //             market_price_sf: 0,
+        //             mint: mint_pubkey.to_string(),
+        //             lending_reserves: vec![],
+        //         };
 
-                pool_assets.entry(market.pool_id).or_default().push(mint_asset);
-            }
-        }
+        //         pool_assets.entry(market.pool_id).or_default().push(mint_asset);
+        //     }
+        // }
 
         for (_, market) in &self.drift_client.spot_markets {
             let mint_pubkey = market.mint;
-            if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == mint_pubkey) {
+            if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == mint_pubkey.to_string())
+            {
                 let market_name = String::from_utf8(
                     market.name.iter().take_while(|&&c| c != 0).copied().collect::<Vec<u8>>(),
                 )
@@ -338,7 +348,8 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                     borrow_rate: borrow_rate_frac,
                     borrow_apy: borrow_rate_frac,
                     supply_apy: deposit_rate_frac,
-                    collateral_assets: pool_assets.get(&market.pool_id).unwrap().clone(), // Drift allows cross-collateral for all assets
+                    collateral_assets: vec![], // Drift allows cross-collateral for all assets
+                    slot: current_slot,
                 });
             }
         }
@@ -398,42 +409,42 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
         table.printstd();
     }
 
-    fn load_token_metadata(
-        &mut self,
-        program: &Program<&Keypair>,
-        mint: &Pubkey,
-    ) -> Result<(String, String), String> {
-        if let Some(metadata) = self.metadata_cache.get(mint) {
-            return Ok(metadata.clone());
-        }
+    // fn load_token_metadata(
+    //     &mut self,
+    //     program: &Program<&Keypair>,
+    //     mint: &Pubkey,
+    // ) -> Result<(String, String), String> {
+    //     if let Some(metadata) = self.metadata_cache.get(mint) {
+    //         return Ok(metadata.clone());
+    //     }
 
-        let metadata_pda = self.get_metadata_pda(mint);
-        let metadata_acc = program
-            .rpc()
-            .get_account(&metadata_pda)
-            .map_err(|e| format!("Failed to fetch metadata: {}", e))?;
+    //     let metadata_pda = self.get_metadata_pda(mint);
+    //     let metadata_acc = program
+    //         .rpc()
+    //         .get_account(&metadata_pda)
+    //         .map_err(|e| format!("Failed to fetch metadata: {}", e))?;
 
-        let metadata = Metadata::from_bytes(&metadata_acc.data)
-            .map_err(|e| format!("Failed to parse metadata: {}", e))?;
+    //     let metadata = Metadata::from_bytes(&metadata_acc.data)
+    //         .map_err(|e| format!("Failed to parse metadata: {}", e))?;
 
-        let result = (
-            metadata.name.trim_matches(char::from(0)).to_string(),
-            metadata.symbol.trim_matches(char::from(0)).to_string(),
-        );
+    //     let result = (
+    //         metadata.name.trim_matches(char::from(0)).to_string(),
+    //         metadata.symbol.trim_matches(char::from(0)).to_string(),
+    //     );
 
-        // Cache the result
-        self.metadata_cache.insert(*mint, result.clone());
+    //     // Cache the result
+    //     self.metadata_cache.insert(*mint, result.clone());
 
-        Ok(result)
-    }
+    //     Ok(result)
+    // }
 
-    fn get_metadata_pda(&self, mint: &Pubkey) -> Pubkey {
-        let metadata_program_id =
-            Pubkey::from_str("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s").unwrap();
-        let seeds = &[b"metadata", metadata_program_id.as_ref(), mint.as_ref()];
-        let (metadata_pda, _) = Pubkey::find_program_address(seeds, &metadata_program_id);
-        metadata_pda
-    }
+    // fn get_metadata_pda(&self, mint: &Pubkey) -> Pubkey {
+    //     let metadata_program_id =
+    //         Pubkey::from_str("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s").unwrap();
+    //     let seeds = &[b"metadata", metadata_program_id.as_ref(), mint.as_ref()];
+    //     let (metadata_pda, _) = Pubkey::find_program_address(seeds, &metadata_program_id);
+    //     metadata_pda
+    // }
 
     pub fn print_markets(&self) {
         use prettytable::{row, Table};
@@ -541,6 +552,13 @@ impl From<String> for ArrayError {
 impl From<&str> for ArrayError {
     fn from(err: &str) -> Self {
         ArrayError::Other(err.into())
+    }
+}
+
+// Add this implementation
+impl From<solana_client::client_error::ClientError> for ArrayError {
+    fn from(err: solana_client::client_error::ClientError) -> Self {
+        ArrayError::Other(Box::new(err))
     }
 }
 

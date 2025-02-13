@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "drift",
+    "sol-interface",
+    "chain-api"
+]
+resolver = "2"

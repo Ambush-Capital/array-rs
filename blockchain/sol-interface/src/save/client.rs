@@ -1,6 +1,6 @@
 use crate::save::models::{Obligation, Reserve};
-use aggregation::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
+use common::{ObligationType, UserObligation};
 use prettytable::{row, Table};
 use solana_client::{
     rpc_config::RpcProgramAccountsConfig,
@@ -19,7 +19,7 @@ pub struct SolendPool {
 }
 
 pub struct SaveClient<C> {
-    program: Program<C>,
+    pub program: Program<C>,
     pub pools: Vec<SolendPool>,
 }
 
@@ -166,7 +166,7 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
                 user_obligations.push(UserObligation {
                     symbol: reserve.liquidity.mint_pubkey.to_string(),
                     market_price_sf: deposit.market_value.try_round_u64().unwrap_or(0),
-                    mint: Pubkey::new_from_array(reserve.liquidity.mint_pubkey.to_bytes()),
+                    mint: reserve.liquidity.mint_pubkey.to_string(),
                     mint_decimals: reserve.liquidity.mint_decimals as u32,
                     amount,
                     protocol_name: "Solend".to_string(),
@@ -189,7 +189,7 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
                 user_obligations.push(UserObligation {
                     symbol: reserve.liquidity.mint_pubkey.to_string(),
                     market_price_sf: borrow.market_value.try_round_u64().unwrap_or(0),
-                    mint: Pubkey::new_from_array(reserve.liquidity.mint_pubkey.to_bytes()),
+                    mint: reserve.liquidity.mint_pubkey.to_string(),
                     mint_decimals: reserve.liquidity.mint_decimals as u32,
                     amount: borrow.borrowed_amount_wads.try_round_u64().unwrap_or(0),
                     protocol_name: "Solend".to_string(),
