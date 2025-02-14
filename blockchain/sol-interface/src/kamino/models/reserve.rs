@@ -143,20 +143,32 @@ impl Reserve {
 
     pub fn current_borrow_rate(&self) -> Result<Fraction, LendingError> {
         let utilization_rate = self.liquidity.utilization_rate()?;
-
         self.config.borrow_rate_curve.get_borrow_rate(utilization_rate)
     }
 
     pub fn slot_adjusted_borrow_rate(&self) -> Fraction {
-        let utilization_rate = self.liquidity.utilization_rate().unwrap();
+        let borrow_rate = self.current_borrow_rate().unwrap();
+        let slot_adjustment = Fraction::from_num(self.slot_adjustment_factor());
 
-        self.config.borrow_rate_curve.get_borrow_rate(utilization_rate).unwrap()
-            * Fraction::from_num(self.slot_adjustment_factor())
+        borrow_rate * slot_adjustment
+    }
+
+    pub fn current_borrow_apr(&self) -> Fraction {
+        let borrow_rate = self.slot_adjusted_borrow_rate();
+        let fixed_rate = self.get_fixed_interest_rate();
+        borrow_rate + fixed_rate
+    }
+
+    pub fn current_supply_apr(&self) -> Fraction {
+        let protocol_take_rate =
+            Fraction::from_num(1.0 - self.get_protocol_take_rate().to_num::<f64>() / 100.0);
+        let slot_adjusted_borrow_rate = self.slot_adjusted_borrow_rate();
+        let current_utilization_rate = self.liquidity.utilization_rate().unwrap();
+        protocol_take_rate * slot_adjusted_borrow_rate * current_utilization_rate
     }
 
     pub fn current_borrow_apy(&self) -> Fraction {
-        let fixed_rate = self.get_fixed_interest_rate();
-        let apr = self.slot_adjusted_borrow_rate() + fixed_rate;
+        let apr = self.current_borrow_apr();
 
         // Change to 365 compounding periods to match TypeScript
         let compounds_per_year = 365;
@@ -168,14 +180,31 @@ impl Reserve {
         compounded - Fraction::ONE
     }
 
-    pub fn current_supply_apr(&self) -> Fraction {
-        let protocol_take_rate =
-            Fraction::from_num(1.0 - self.get_protocol_take_rate().to_num::<f64>());
-        let slot_adjusted_borrow_rate = self.slot_adjusted_borrow_rate();
-        let current_utilization_rate = self.liquidity.utilization_rate().unwrap();
+    // pub fn current_borrow_apy(&self) -> Fraction {
+    //     let apr = self.current_borrow_apr();
+    //     // let apr = self.current_borrow_rate().unwrap();
+    //     // Change to 365 compounding periods to match TypeScript
+    //     let compounds_per_year = SLOTS_PER_YEAR;
+    //     let rate_per_period = apr.to_num::<f64>() / compounds_per_year as f64;
 
-        protocol_take_rate * slot_adjusted_borrow_rate * current_utilization_rate
-    }
+    //     let base = Fraction::ONE + Fraction::from_num(rate_per_period);
+    //     let compounded = pow_fraction(base, compounds_per_year as u32).unwrap();
+
+    //     compounded - Fraction::ONE
+    // }
+
+    // pub fn current_supply_apy(&self) -> Fraction {
+    //     let apr = self.current_supply_apr();
+
+    //     // Change to 365 compounding periods to match TypeScript
+    //     let compounds_per_year = 365;
+    //     let rate_per_period = apr.to_num::<f64>() / compounds_per_year as f64;
+
+    //     let base = Fraction::ONE + Fraction::from_num(rate_per_period);
+    //     let compounded = pow_fraction(base, compounds_per_year as u32).unwrap();
+
+    //     compounded - Fraction::ONE
+    // }
 
     pub fn current_supply_apy(&self) -> Fraction {
         let apr = self.current_supply_apr();

@@ -281,7 +281,7 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                             * MARGINFI_SCALE_FACTOR as u128,
                         total_borrows: reserve.liquidity.total_borrow().to_num::<u128>()
                             * MARGINFI_SCALE_FACTOR as u128,
-                        supply_rate: Fraction::to_bits(reserve.current_supply_apy()),
+                        supply_rate: Fraction::to_bits(reserve.current_supply_apr()),
                         borrow_rate: Fraction::to_bits(reserve.current_borrow_rate().unwrap()),
                         borrow_apy: Fraction::to_bits(reserve.current_borrow_apy()),
                         supply_apy: Fraction::to_bits(reserve.current_supply_apy()),

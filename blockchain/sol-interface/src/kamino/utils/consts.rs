@@ -7,7 +7,7 @@ pub const SLOTS_PER_MINUTE: u64 = SLOTS_PER_SECOND * 60;
 pub const SLOTS_PER_HOUR: u64 = SLOTS_PER_MINUTE * 60;
 pub const SLOTS_PER_DAY: u64 = SLOTS_PER_HOUR * 24;
 pub const SLOTS_PER_YEAR: u64 = SLOTS_PER_DAY * 365;
-pub const DEFAULT_SLOT_DURATION_MS: u64 = 450;
+pub const DEFAULT_SLOT_DURATION_MS: u64 = 396;
 
 pub const PROGRAM_VERSION: u8 = 1;
 
@@ -162,9 +162,6 @@ pub struct CpiWhitelistedAccount {
 
 impl CpiWhitelistedAccount {
     pub const fn new(program_id: Pubkey, whitelist_level: usize) -> CpiWhitelistedAccount {
-        CpiWhitelistedAccount {
-            program_id,
-            whitelist_level,
-        }
+        CpiWhitelistedAccount { program_id, whitelist_level }
     }
 }
