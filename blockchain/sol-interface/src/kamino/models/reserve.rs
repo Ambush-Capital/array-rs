@@ -136,7 +136,16 @@ impl Reserve {
         self.config = *params.config;
     }
 
-    // defaulting to 450ms slot duration, matches broadcasted values on UI from what i can tell
+    // its good to reflect on what we have learned
+    // the default slot duration is 450ms that shows up in the codebase
+    // i haven't figured out the code where they calculate the current slot duration
+    // but the front end certainly drifts here, its possible since the recent updates to the client that made slots more consistent and faster this has drifted lower
+    // but let me tell you it was annoying to figure out
+    // the ux/ui was showing 396ms as the slot duration through some javascript magic debugging
+    // so be mindful this shifts
+    // its likely we will need to use the borrow rate as the core calculation
+    // but its worth noting that the supply rate is calculated post adjustment
+    // so im not sure but maybe we need to use a global variable for this slot duration and be ok that the ui/ux of the lending platforms don't match our apys exactly
     pub fn slot_adjustment_factor(&self) -> f64 {
         1_000.0 / SLOTS_PER_SECOND as f64 / DEFAULT_SLOT_DURATION_MS as f64
     }
