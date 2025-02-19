@@ -1,0 +1,1006 @@
+-- For reference, the lending_markets schema is:
+-- id INTEGER PRIMARY KEY AUTOINCREMENT,
+-- protocol_name VARCHAR(64) NOT NULL,
+-- market_name VARCHAR(64) NOT NULL,
+-- token_name VARCHAR(64) NOT NULL,
+-- token_symbol VARCHAR(10) NOT NULL,
+-- token_mint VARCHAR(64) NOT NULL,
+-- market_price UNSIGNED BIGINT NOT NULL,
+-- total_supply DECIMAL(39,0) NOT NULL,
+-- total_borrows DECIMAL(39,0) NOT NULL,
+-- borrow_rate DECIMAL(39,0) NOT NULL,
+-- supply_rate DECIMAL(39,0) NOT NULL,
+-- borrow_apy DECIMAL(39,0) NOT NULL,
+-- supply_apy DECIMAL(39,0) NOT NULL,
+-- slot UNSIGNED BIGINT NOT NULL,
+-- timestamp DATETIME NOT NULL;
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    3500000000000000000000,  -- 3.5%
+    2900000000000000000000,  -- 2.9%
+    3675000000000000000000,  -- 3.675% (3.5% * 1.05)
+    3045000000000000000000,  -- 3.045% (2.9% * 1.05)
+    0,
+    '2025-01-21 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    4100000000000000000000,  -- 4.1%
+    3200000000000000000000,  -- 3.2%
+    4305000000000000000000,  -- 4.305% (4.1% * 1.05)
+    3360000000000000000000,  -- 3.36% (3.2% * 1.05)
+    0,
+    '2025-01-22 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    5300000000000000000000,  -- 5.3%
+    3700000000000000000000,  -- 3.7%
+    5565000000000000000000,  -- 5.565%
+    3885000000000000000000,  -- 3.885%
+    0,
+    '2025-01-23 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    2200000000000000000000,  -- 2.2%
+    2500000000000000000000,  -- 2.5%
+    2310000000000000000000,  -- 2.31%
+    2625000000000000000000,  -- 2.625%
+    0,
+    '2025-01-24 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    32900000000000000000000,  -- 32.9%
+    5100000000000000000000,   -- 5.1%
+    34545000000000000000000,  -- 34.545%
+    5355000000000000000000,   -- 5.355%
+    0,
+    '2025-01-25 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    2100000000000000000000,   -- 2.1%
+    63900000000000000000000,  -- 63.9% (big spike)
+    2205000000000000000000,   -- 2.205%
+    67100000000000000000000,  -- 67.095%
+    0,
+    '2025-01-26 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    11200000000000000000000,  -- 11.2%
+    4100000000000000000000,   -- 4.1%
+    11760000000000000000000,  -- 11.76%
+    4305000000000000000000,   -- 4.305%
+    0,
+    '2025-01-27 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    800000000000000000000,   -- 0.8%
+    2900000000000000000000,  -- 2.9%
+    840000000000000000000,   -- 0.84%
+    3045000000000000000000,  -- 3.045%
+    0,
+    '2025-01-28 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    9800000000000000000000,  -- 9.8%
+    3500000000000000000000,  -- 3.5%
+    10290000000000000000000, -- 10.29%
+    3675000000000000000000,  -- 3.675%
+    0,
+    '2025-01-29 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    60200000000000000000000,  -- 60.2% (big spike)
+    5200000000000000000000,   -- 5.2%
+    63210000000000000000000,  -- 63.21%
+    5460000000000000000000,   -- 5.46%
+    0,
+    '2025-01-30 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    8400000000000000000000,  -- 8.4%
+    4700000000000000000000,  -- 4.7%
+    8820000000000000000000,  -- 8.82%
+    4935000000000000000000,  -- 4.935%
+    0,
+    '2025-01-31 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    12500000000000000000000,  -- 12.5%
+    5500000000000000000000,   -- 5.5%
+    13125000000000000000000,  -- 13.125%
+    5775000000000000000000,   -- 5.775%
+    0,
+    '2025-02-01 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    4100000000000000000000,  -- 4.1%
+    3100000000000000000000,  -- 3.1%
+    4305000000000000000000,  -- 4.305%
+    3255000000000000000000,  -- 3.255%
+    0,
+    '2025-02-02 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    8200000000000000000000,  -- 8.2%
+    3300000000000000000000,  -- 3.3%
+    8610000000000000000000,  -- 8.61%
+    3465000000000000000000,  -- 3.465%
+    0,
+    '2025-02-03 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    3300000000000000000000,  -- 3.3%
+    2700000000000000000000,  -- 2.7%
+    3465000000000000000000,  -- 3.465%
+    2835000000000000000000,  -- 2.835%
+    0,
+    '2025-02-04 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    17100000000000000000000,  -- 17.1%
+    5800000000000000000000,   -- 5.8%
+    17955000000000000000000,  -- 17.955%
+    6090000000000000000000,   -- 6.09%
+    0,
+    '2025-02-05 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    14500000000000000000000,  -- 14.5%
+    4900000000000000000000,   -- 4.9%
+    15225000000000000000000,  -- 15.225%
+    5145000000000000000000,   -- 5.145%
+    0,
+    '2025-02-06 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    2000000000000000000000,   -- 2.0%
+    2100000000000000000000,   -- 2.1%
+    2100000000000000000000,   -- 2.1% (roughly the same for APY)
+    2205000000000000000000,   -- 2.205%
+    0,
+    '2025-02-07 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    5600000000000000000000,  -- 5.6%
+    3000000000000000000000,  -- 3.0%
+    5880000000000000000000,  -- 5.88%
+    3150000000000000000000,  -- 3.15%
+    0,
+    '2025-02-08 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    9100000000000000000000,  -- 9.1%
+    3400000000000000000000,  -- 3.4%
+    9555000000000000000000,  -- 9.555%
+    3570000000000000000000,  -- 3.57%
+    0,
+    '2025-02-09 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    2200000000000000000000,  -- 2.2%
+    2200000000000000000000,  -- 2.2%
+    2310000000000000000000,  -- 2.31%
+    2310000000000000000000,  -- 2.31%
+    0,
+    '2025-02-10 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    25300000000000000000000,  -- 25.3%
+    4500000000000000000000,   -- 4.5%
+    26565000000000000000000,  -- 26.565%
+    4725000000000000000000,   -- 4.725%
+    0,
+    '2025-02-11 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    15500000000000000000000,  -- 15.5%
+    5100000000000000000000,   -- 5.1%
+    16275000000000000000000,  -- 16.275%
+    5355000000000000000000,   -- 5.355%
+    0,
+    '2025-02-12 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    3200000000000000000000,  -- 3.2%
+    2600000000000000000000,  -- 2.6%
+    3360000000000000000000,  -- 3.36%
+    2730000000000000000000,  -- 2.73%
+    0,
+    '2025-02-13 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    10400000000000000000000,  -- 10.4%
+    3800000000000000000000,   -- 3.8%
+    10920000000000000000000,  -- 10.92%
+    3990000000000000000000,   -- 3.99%
+    0,
+    '2025-02-14 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    12800000000000000000000,  -- 12.8%
+    4200000000000000000000,   -- 4.2%
+    13440000000000000000000,  -- 13.44%
+    4410000000000000000000,   -- 4.41%
+    0,
+    '2025-02-15 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    9800000000000000000000,  -- 9.8%
+    3300000000000000000000,  -- 3.3%
+    10290000000000000000000, -- 10.29%
+    3465000000000000000000,  -- 3.465%
+    0,
+    '2025-02-16 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    18400000000000000000000,  -- 18.4%
+    5400000000000000000000,   -- 5.4%
+    19320000000000000000000,  -- 19.32%
+    5670000000000000000000,   -- 5.67%
+    0,
+    '2025-02-17 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    1500000000000000000000,   -- 1.5%
+    2000000000000000000000,   -- 2.0%
+    1575000000000000000000,   -- 1.575%
+    2100000000000000000000,   -- 2.1%
+    0,
+    '2025-02-18 00:00:00'
+);
+
+INSERT INTO lending_markets (
+    protocol_name,
+    market_name,
+    token_name,
+    token_symbol,
+    token_mint,
+    market_price,
+    total_supply,
+    total_borrows,
+    borrow_rate,
+    supply_rate,
+    borrow_apy,
+    supply_apy,
+    slot,
+    timestamp
+)
+VALUES (
+    'Drift',
+    'USDC-1',
+    'USD Coin',
+    'USDC',
+    'So11111111111111111111111111111111111111112',
+    1,
+    '0',
+    '0',
+    11700000000000000000000,  -- 11.7%
+    4700000000000000000000,   -- 4.7%
+    12285000000000000000000,  -- 12.285%
+    4935000000000000000000,   -- 4.935%
+    0,
+    '2025-02-19 00:00:00'
+);
