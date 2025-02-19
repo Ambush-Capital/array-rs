@@ -15,6 +15,8 @@ API_DIR = api
 
 .PHONY: create-db delete-db run-chain-api run-worker
 
+# Add this new target
+install-deps:
 	@echo "Checking for rustup..."
 	@if ! command -v rustup > /dev/null; then \
 		echo "rustup not found. Installing rustup and Rust toolchain..."; \
