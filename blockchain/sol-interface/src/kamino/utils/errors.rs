@@ -1,4 +1,3 @@
-
 #[derive(Debug, PartialEq, Eq, strum::EnumString)]
 pub enum LendingError {
     InvalidMarketAuthority,
@@ -120,3 +119,5 @@ impl std::fmt::Display for LendingError {
         write!(f, "{:?}", self)
     }
 }
+
+impl std::error::Error for LendingError {}

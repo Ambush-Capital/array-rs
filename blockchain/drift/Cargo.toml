@@ -21,3 +21,4 @@ num-traits = "0.2"
 log = "0.4.25"
 env_logger = "0.11.6"
 common = { path = "../../common" }
+rust_decimal = {version = "1.36.0", features = ["maths"]}

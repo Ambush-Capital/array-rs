@@ -1,8 +1,70 @@
 use anyhow::Result;
 use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
-use common::MintAsset;
+use common::{LendingReserve, MintAsset};
 use log::{debug, error, info};
+use serde::Serialize;
 use sqlx::{Pool, Sqlite};
+
+fn format_rate(rate: u128) -> String {
+    let rate_f64 = (rate as f64) / 1e19;
+    format!("{:.10}", rate_f64).trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+#[derive(Serialize)]
+struct ApiLendingReserve {
+    protocol_name: String,
+    market_name: String,
+    total_supply: u128,
+    total_borrows: u128,
+    borrow_rate: String,
+    supply_rate: String,
+    borrow_apy: String,
+    supply_apy: String,
+    slot: u64,
+    collateral_assets: Vec<MintAsset>,
+}
+
+impl From<LendingReserve> for ApiLendingReserve {
+    fn from(reserve: LendingReserve) -> Self {
+        Self {
+            protocol_name: reserve.protocol_name,
+            market_name: reserve.market_name,
+            total_supply: reserve.total_supply,
+            total_borrows: reserve.total_borrows,
+            borrow_rate: format_rate(reserve.borrow_rate),
+            supply_rate: format_rate(reserve.supply_rate),
+            borrow_apy: format_rate(reserve.borrow_apy),
+            supply_apy: format_rate(reserve.supply_apy),
+            slot: reserve.slot,
+            collateral_assets: reserve.collateral_assets,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct ApiMintAsset {
+    name: String,
+    symbol: String,
+    market_price_sf: u64,
+    mint: String,
+    lending_reserves: Vec<ApiLendingReserve>,
+}
+
+impl From<MintAsset> for ApiMintAsset {
+    fn from(asset: MintAsset) -> Self {
+        Self {
+            name: asset.name,
+            symbol: asset.symbol,
+            market_price_sf: asset.market_price_sf,
+            mint: asset.mint,
+            lending_reserves: asset
+                .lending_reserves
+                .into_iter()
+                .map(ApiLendingReserve::from)
+                .collect(),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct ApiService {
@@ -77,12 +139,36 @@ pub struct HistoricalMarketData {
     pub market_price: i64,
     pub total_supply: String,
     pub total_borrows: String,
+    #[serde(serialize_with = "serialize_rate")]
     pub borrow_rate: String,
+    #[serde(serialize_with = "serialize_rate")]
     pub supply_rate: String,
+    #[serde(serialize_with = "serialize_rate")]
     pub borrow_apy: String,
+    #[serde(serialize_with = "serialize_rate")]
     pub supply_apy: String,
     pub slot: u64,
     pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+fn serialize_rate<S>(rate_str: &str, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    // Parse the string as a u128 (or f64 if parsing fails)
+    let rate_val = match rate_str.parse::<u128>() {
+        Ok(val) => (val as f64) / 1e18,
+        Err(_) => match rate_str.parse::<f64>() {
+            Ok(val) => val / 1e18,
+            Err(_) => return serializer.serialize_str("0.0"), // fallback
+        },
+    };
+
+    // Convert to string with appropriate precision and no trailing zeros
+    let formatted =
+        format!("{:.10}", rate_val).trim_end_matches('0').trim_end_matches('.').to_string();
+
+    serializer.serialize_str(&formatted)
 }
 
 pub async fn create_router(service: ApiService) -> Router {
@@ -94,11 +180,11 @@ pub async fn create_router(service: ApiService) -> Router {
 
 async fn get_current_markets(
     State(service): State<ApiService>,
-) -> (StatusCode, Json<Vec<MintAsset>>) {
+) -> (StatusCode, Json<Vec<ApiMintAsset>>) {
     match service.get_current_markets().await {
         Ok(markets) => {
             info!("Successfully returned {} current markets", markets.len());
-            (StatusCode::OK, Json(markets))
+            (StatusCode::OK, Json(markets.into_iter().map(ApiMintAsset::from).collect()))
         }
         Err(e) => {
             error!("Error fetching current markets: {}", e);

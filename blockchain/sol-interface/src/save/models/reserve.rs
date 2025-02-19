@@ -89,36 +89,48 @@ impl Reserve {
         Rate::from_percent(122)
     }
 
-    pub fn current_borrow_apy(&self) -> Rate {
-        let apr: Rate = self.current_slot_adjusted_borrow_rate();
+    pub fn current_borrow_apy_slot_unadjusted(&self) -> Result<Rate, ProgramError> {
+        let apr: Rate = self.current_borrow_rate_unadjusted().unwrap();
         let compounds_per_year = 365;
         let rate_per_period = apr.try_div(compounds_per_year).unwrap();
         let base: Rate = Rate::one().try_add(rate_per_period).unwrap();
         let compounded = base.try_pow(compounds_per_year).unwrap();
-        compounded.try_sub(Rate::one()).unwrap()
+        compounded.try_sub(Rate::one())
     }
 
-    pub fn current_supply_apy(&self) -> Rate {
-        let supply_apr = self.current_supply_apr();
+    pub fn current_supply_apy_slot_unadjusted(&self) -> Result<Rate, ProgramError> {
+        let supply_apr = self.current_supply_apr_unadjusted().unwrap();
         let compounds_per_year = 365;
         let rate_per_period = supply_apr.try_div(compounds_per_year).unwrap();
         let base: Rate = Rate::one().try_add(rate_per_period).unwrap();
         let compounded = base.try_pow(compounds_per_year).unwrap();
-        compounded.try_sub(Rate::one()).unwrap()
+        compounded.try_sub(Rate::one())
     }
 
-    pub fn current_slot_adjusted_borrow_rate(&self) -> Rate {
+    pub fn current_borrow_rate_unadjusted(&self) -> Result<Rate, ProgramError> {
+        self.current_borrow_rate()
+    }
+
+    pub fn current_borrow_rate_slot_adjusted(&self) -> Result<Rate, ProgramError> {
         let apr = self.current_borrow_rate().unwrap();
         // apr.try_mul(Rate::from_percent(self.config.protocol_take_rate)).unwrap()
-        apr.try_mul(self.slot_adjustment_factor()).unwrap()
+        apr.try_mul(self.slot_adjustment_factor())
     }
 
-    pub fn current_supply_apr(&self) -> Rate {
+    pub fn current_supply_apr_unadjusted(&self) -> Result<Rate, ProgramError> {
         let protocol_take_rate =
             Rate::one().try_sub(Rate::from_percent(self.config.protocol_take_rate)).unwrap();
-        let borrow_rate = self.current_slot_adjusted_borrow_rate();
+        let borrow_rate = self.current_borrow_rate_unadjusted().unwrap();
         let utilization_rate = self.liquidity.utilization_rate().unwrap();
-        protocol_take_rate.try_mul(borrow_rate).unwrap().try_mul(utilization_rate).unwrap()
+        protocol_take_rate.try_mul(borrow_rate).unwrap().try_mul(utilization_rate)
+    }
+
+    pub fn current_supply_apr_slot_adjusted(&self) -> Result<Rate, ProgramError> {
+        let protocol_take_rate =
+            Rate::one().try_sub(Rate::from_percent(self.config.protocol_take_rate)).unwrap();
+        let borrow_rate = self.current_borrow_rate_slot_adjusted().unwrap();
+        let utilization_rate = self.liquidity.utilization_rate().unwrap();
+        protocol_take_rate.try_mul(borrow_rate).unwrap().try_mul(utilization_rate)
     }
 
     // pub fn current_borrow_apy(&self) -> Fraction {

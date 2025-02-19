@@ -9,8 +9,8 @@ pub struct LendingReserve {
 
     pub borrow_rate: u128,
     pub supply_rate: u128,
-    pub borrow_apy: u128, //these are slot adjusted
-    pub supply_apy: u128, //these are slot adjusted
+    pub borrow_apy: u128,
+    pub supply_apy: u128,
 
     pub slot: u64,
 

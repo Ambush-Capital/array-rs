@@ -1,6 +1,6 @@
-use common::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
 use borsh::BorshDeserialize;
+use common::{ObligationType, UserObligation};
 use prettytable::{row, Table};
 use solana_client::{
     rpc_config::RpcProgramAccountsConfig,
@@ -137,8 +137,14 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
                         "{:.1}%",
                         reserve.liquidity.utilization_rate().unwrap().to_num::<f64>() * 100.0
                     ),
-                    format!("{:.1}%", reserve.current_supply_apy().to_num::<f64>() * 100.0),
-                    format!("{:.1}%", reserve.current_borrow_apy().to_num::<f64>() * 100.0),
+                    format!(
+                        "{:.1}%",
+                        reserve.current_supply_apy_unadjusted().unwrap().to_num::<f64>() * 100.0
+                    ),
+                    format!(
+                        "{:.1}%",
+                        reserve.current_borrow_apy_unadjusted().unwrap().to_num::<f64>() * 100.0
+                    ),
                     reserve.liquidity.mint_pubkey.to_string(),
                     pubkey.to_string()
                 ]);

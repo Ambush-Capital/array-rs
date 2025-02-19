@@ -1,7 +1,10 @@
+use rust_decimal::Decimal;
+
 use crate::casting::Cast;
-use crate::error::DriftResult;
+use crate::error::{DriftResult, ErrorCode};
 use crate::math::constants::{PERCENTAGE_PRECISION, SPOT_UTILIZATION_PRECISION};
 use crate::math::safe_math::SafeMath;
+use rust_decimal::prelude::*;
 
 use super::idl::types::{MarketStatus, SpotBalanceType};
 use crate::models::idl::accounts::SpotMarket;
@@ -20,6 +23,47 @@ impl SpotMarket {
         let utilization = self.get_utilization()?;
         let borrow_rate = self.get_borrow_rate()?;
         calculate_deposit_rate(self, utilization, borrow_rate)
+    }
+
+    pub fn current_borrow_apy_unadjusted(&self) -> DriftResult<u128> {
+        let borrow_rate = self.get_borrow_rate()?;
+        let scale_factor = Decimal::from(1_000_000u128);
+        let apr = Decimal::from(borrow_rate) / scale_factor;
+
+        // We'll assume daily compounding with 365 periods per year
+        let periods_per_year = 365u32;
+        let rate_per_period = apr / Decimal::from(periods_per_year);
+
+        // APY = (1 + (APR / 365))^365 - 1
+        let apy = (Decimal::ONE + rate_per_period).powu(periods_per_year.into()) - Decimal::ONE;
+
+        // Now convert APY back to the same fixed-point format (shift 60)
+        // i.e., APY_scaled = APY * 2^60
+        let apy_scaled = apy * scale_factor;
+        let apy_scaled_trunc = apy_scaled.trunc();
+        let apy_u128 = apy_scaled_trunc.to_u128().ok_or(ErrorCode::MathError)?;
+
+        Ok(apy_u128)
+    }
+
+    pub fn current_supply_apy_unadjusted(&self) -> DriftResult<u128> {
+        let deposit_rate = self.get_deposit_rate()?;
+        let scale_factor = Decimal::from(1_000_000u128);
+        let apr = Decimal::from(deposit_rate) / scale_factor;
+
+        // We'll assume daily compounding with 365 periods per year
+        let periods_per_year = 365u32;
+        let rate_per_period = apr / Decimal::from(periods_per_year);
+
+        // APY = (1 + (APR / 365))^365 - 1
+        let apy = (Decimal::ONE + rate_per_period).powu(periods_per_year.into()) - Decimal::ONE;
+
+        // Now convert APY back to the same fixed-point format (shift 60)
+        // i.e., APY_scaled = APY * 2^60
+        let apy_scaled = apy * scale_factor;
+        let apy_scaled_trunc = apy_scaled.trunc();
+        let apy_u128 = apy_scaled_trunc.to_u128().ok_or(ErrorCode::MathError)?;
+        Ok(apy_u128)
     }
 
     pub fn get_deposits(&self) -> DriftResult<u128> {

@@ -1,5 +1,6 @@
 use std::{ops::Deref, str::FromStr};
 
+use crate::kamino::utils::errors::LendingError as KaminoLendingError;
 use crate::{
     kamino::{client::KaminoClient, utils::fraction::Fraction},
     marginfi::client::MarginfiClient,
@@ -8,6 +9,7 @@ use crate::{
 use anchor_client::Client;
 use common::{LendingReserve, MintAsset, ObligationType, UserObligation};
 use drift::{client::DriftClient, error::ErrorCode};
+use solana_program::program_error::ProgramError;
 use solana_sdk::{pubkey::Pubkey, signature::Signer};
 
 pub const SUPPLY_SCALE_FACTOR: f64 = 1_000_000_000_000_000_000_000_000.0;
@@ -177,21 +179,29 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                             .to_scaled_val()
                             .unwrap(),
                         supply_rate: scale_to_fraction(
-                            reserve.current_supply_apr().to_scaled_val(),
+                            reserve.current_supply_apr_unadjusted()?.to_scaled_val(),
                         )
                         .unwrap()
-                        .to_bits(),
+                        .to_bits()
+                            * 1000,
                         borrow_rate: scale_to_fraction(
-                            reserve.current_borrow_rate().unwrap().to_scaled_val(),
+                            reserve.current_borrow_rate()?.to_scaled_val(),
                         )
                         .unwrap()
-                        .to_bits(),
-                        borrow_apy: scale_to_fraction(reserve.current_borrow_apy().to_scaled_val())
-                            .unwrap()
-                            .to_bits(),
-                        supply_apy: scale_to_fraction(reserve.current_supply_apy().to_scaled_val())
-                            .unwrap()
-                            .to_bits(),
+                        .to_bits()
+                            * 1000,
+                        borrow_apy: scale_to_fraction(
+                            reserve.current_borrow_apy_slot_unadjusted()?.to_scaled_val(),
+                        )
+                        .unwrap()
+                        .to_bits()
+                            * 1000,
+                        supply_apy: scale_to_fraction(
+                            reserve.current_supply_apy_slot_unadjusted()?.to_scaled_val(),
+                        )
+                        .unwrap()
+                        .to_bits()
+                            * 1000,
                         collateral_assets: vec![],
                         slot: current_slot,
                     });
@@ -202,7 +212,9 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
         // Load Marginfi banks
         for (_, bank) in &self.marginfi_client.banks {
             if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == bank.mint.to_string()) {
-                let interest_rates = bank.get_interest_rate(&self.marginfi_client.group).unwrap();
+                let interest_rates = bank
+                    .get_interest_rate(&self.marginfi_client.group)
+                    .ok_or_else(|| "Failed to get interest rate".to_string())?;
 
                 const SCALE_SHIFT: u32 = 12;
 
@@ -217,24 +229,26 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                         .lending_rate_apr
                         .to_bits()
                         .checked_shl(SCALE_SHIFT)
-                        .unwrap() as u128,
-                    borrow_apy: interest_rates
-                        .borrowing_rate_apy()
-                        .to_bits()
-                        .checked_shl(SCALE_SHIFT)
-                        .unwrap() as u128,
-
-                    supply_apy: interest_rates
-                        .lending_rate_apy()
-                        .to_bits()
-                        .checked_shl(SCALE_SHIFT)
-                        .unwrap() as u128,
-
+                        .unwrap() as u128
+                        * 1000,
                     borrow_rate: interest_rates
                         .borrowing_rate_apr
                         .to_bits()
                         .checked_shl(SCALE_SHIFT)
-                        .unwrap() as u128,
+                        .unwrap() as u128
+                        * 1000,
+                    borrow_apy: interest_rates
+                        .borrowing_rate_apy()
+                        .to_bits()
+                        .checked_shl(SCALE_SHIFT)
+                        .unwrap() as u128
+                        * 1000,
+                    supply_apy: interest_rates
+                        .lending_rate_apy()
+                        .to_bits()
+                        .checked_shl(SCALE_SHIFT)
+                        .unwrap() as u128
+                        * 1000,
 
                     collateral_assets: vec![], //its basically all the collateral
                     slot: current_slot,
@@ -281,10 +295,14 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                             * MARGINFI_SCALE_FACTOR as u128,
                         total_borrows: reserve.liquidity.total_borrow().to_num::<u128>()
                             * MARGINFI_SCALE_FACTOR as u128,
-                        supply_rate: Fraction::to_bits(reserve.current_supply_apr()),
-                        borrow_rate: Fraction::to_bits(reserve.current_borrow_rate().unwrap()),
-                        borrow_apy: Fraction::to_bits(reserve.current_borrow_apy()),
-                        supply_apy: Fraction::to_bits(reserve.current_supply_apy()),
+                        supply_rate: Fraction::to_bits(reserve.current_supply_apr_unadjusted()?)
+                            * 1000,
+                        borrow_rate: Fraction::to_bits(reserve.current_borrow_rate_unadjusted()?)
+                            * 1000,
+                        borrow_apy: Fraction::to_bits(reserve.current_borrow_apy_unadjusted()?)
+                            * 1000,
+                        supply_apy: Fraction::to_bits(reserve.current_supply_apy_unadjusted()?)
+                            * 1000,
                         collateral_assets: vec![],
                         slot: current_slot,
                     });
@@ -325,17 +343,25 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                 .unwrap_or_default();
 
                 // TODO: I think lets rip all of the Fraction stuff out and just use u128s
-                let borrow_rate = market.get_borrow_rate()?;
-                let borrow_rate_frac =
-                    borrow_rate.checked_shl(SCALE_SHIFT).ok_or(ErrorCode::MathError)?
-                        / 10_u128.pow(6);
+                let supply_rate = market
+                    .get_borrow_rate()?
+                    .checked_mul(1_000_000_000_000_000)
+                    .ok_or(ErrorCode::MathError)?;
 
-                let deposit_rate = market.get_deposit_rate().unwrap_or(0);
-                let deposit_rate_frac =
-                    deposit_rate.checked_shl(SCALE_SHIFT).ok_or(ErrorCode::MathError)?
-                        / 10_u128.pow(6);
+                let borrow_rate = market
+                    .get_deposit_rate()?
+                    .checked_mul(1_000_000_000_000_000)
+                    .ok_or(ErrorCode::MathError)?;
 
-                println!("Vault for token {:?} is {:?}", market.mint, market.vault);
+                let borrow_apy = market
+                    .current_borrow_apy_unadjusted()?
+                    .checked_mul(1_000_000_000_000_000)
+                    .ok_or(ErrorCode::MathError)?;
+
+                let supply_apy = market
+                    .current_supply_apy_unadjusted()?
+                    .checked_mul(1_000_000_000_000_000)
+                    .ok_or(ErrorCode::MathError)?;
 
                 asset.lending_reserves.push(LendingReserve {
                     protocol_name: "Drift".to_string(),
@@ -344,10 +370,10 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                         * MARGINFI_SCALE_FACTOR as u128,
                     total_borrows: market.get_borrows().unwrap_or(0)
                         * MARGINFI_SCALE_FACTOR as u128,
-                    supply_rate: deposit_rate_frac,
-                    borrow_rate: borrow_rate_frac,
-                    borrow_apy: borrow_rate_frac,
-                    supply_apy: deposit_rate_frac,
+                    supply_rate,
+                    borrow_rate,
+                    borrow_apy,
+                    supply_apy,
                     collateral_assets: vec![], // Drift allows cross-collateral for all assets
                     slot: current_slot,
                 });
@@ -552,6 +578,24 @@ impl From<String> for ArrayError {
 impl From<&str> for ArrayError {
     fn from(err: &str) -> Self {
         ArrayError::Other(err.into())
+    }
+}
+
+impl From<ProgramError> for ArrayError {
+    fn from(err: ProgramError) -> Self {
+        ArrayError::Other(Box::new(err))
+    }
+}
+
+impl From<LendingError> for ArrayError {
+    fn from(err: LendingError) -> Self {
+        ArrayError::Other(Box::new(err))
+    }
+}
+
+impl From<KaminoLendingError> for ArrayError {
+    fn from(err: KaminoLendingError) -> Self {
+        ArrayError::Other(Box::new(err))
     }
 }
 

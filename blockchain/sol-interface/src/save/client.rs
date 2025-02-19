@@ -130,8 +130,8 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
                     format!("{:.3}", reserve.liquidity.total_supply().unwrap()),
                     format!("{:.3}", reserve.liquidity.market_price),
                     format!("{:.1}", reserve.liquidity.utilization_rate().unwrap()),
-                    format!("{:.1}%", reserve.current_slot_adjusted_borrow_rate()),
-                    format!("{:.1}%", reserve.current_supply_apr()),
+                    format!("{:.1}%", reserve.current_borrow_rate_unadjusted().unwrap()),
+                    format!("{:.1}%", reserve.current_supply_apr_unadjusted().unwrap()),
                     pubkey.to_string()
                 ]);
                 // println!("{} {:#?}", pool.name,reserve.config);
