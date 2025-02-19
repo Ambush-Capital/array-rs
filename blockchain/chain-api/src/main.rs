@@ -17,10 +17,9 @@ struct LendingService {
 impl LendingService {
     pub fn new() -> Self {
         let rpc_url = std::env::var("RPC_URL").expect("Missing RPC_URL");
-        let payer = Arc::new(
-            read_keypair_file("/Users/aaronhenshaw/.config/solana/id.json")
-                .expect("Failed to load keypair"),
-        );
+        let keypair_path =
+            std::env::var("KEYPAIR_PATH").expect("Missing KEYPAIR_PATH environment variable");
+        let payer = Arc::new(read_keypair_file(keypair_path).expect("Failed to load keypair"));
 
         let client = Arc::new(Client::new_with_options(
             Cluster::Custom(rpc_url.clone(), rpc_url),

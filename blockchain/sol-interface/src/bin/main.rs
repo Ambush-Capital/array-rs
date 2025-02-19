@@ -9,8 +9,9 @@ fn main() {
     env_logger::init();
     // Initialize clients
     let rpc_url = std::env::var("RPC_URL").expect("Missing RPC_URL environment variable");
-    let payer = read_keypair_file("/Users/aaronhenshaw/.config/solana/id.json")
-        .expect("Failed to read keypair file");
+    let keypair_path =
+        std::env::var("KEYPAIR_PATH").expect("Missing KEYPAIR_PATH environment variable");
+    let payer = read_keypair_file(keypair_path).expect("Failed to read keypair file");
     let client = Client::new_with_options(
         Cluster::Custom(rpc_url.clone(), rpc_url),
         &payer,

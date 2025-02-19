@@ -65,7 +65,11 @@ run-chain-api:
 		echo "Error: RPC_URL is not set. Please set it in your .env file."; \
 		exit 1; \
 	fi
-	cd $(BLOCKCHAIN_DIR) && RPC_URL=$(RPC_URL) cargo run -p chain-api
+	@if [ -z "$(KEYPAIR_PATH)" ]; then \
+		echo "Error: KEYPAIR_PATH is not set. Please set it in your .env file."; \
+		exit 1; \
+	fi
+	cd $(BLOCKCHAIN_DIR) && RPC_URL=$(RPC_URL) KEYPAIR_PATH=$(KEYPAIR_PATH) cargo run -p chain-api
 
 # Run the worker in the worker workspace.
 run-worker:
