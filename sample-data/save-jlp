@@ -1,0 +1,827 @@
+-- For reference, the lending_markets schema is:
+--   id INTEGER PRIMARY KEY AUTOINCREMENT,
+--   protocol_name VARCHAR(64) NOT NULL,
+--   market_name VARCHAR(64) NOT NULL,
+--   token_name VARCHAR(64) NOT NULL,
+--   token_symbol VARCHAR(10) NOT NULL,
+--   token_mint VARCHAR(64) NOT NULL,
+--   market_price UNSIGNED BIGINT NOT NULL,
+--   total_supply DECIMAL(39,0) NOT NULL,
+--   total_borrows DECIMAL(39,0) NOT NULL,
+--   borrow_rate DECIMAL(39,0) NOT NULL,
+--   supply_rate DECIMAL(39,0) NOT NULL,
+--   borrow_apy DECIMAL(39,0) NOT NULL,
+--   supply_apy DECIMAL(39,0) NOT NULL,
+--   slot UNSIGNED BIGINT NOT NULL,
+--   timestamp DATETIME NOT NULL;
+
+----------------------------------------------------------------------
+-- Day -29: Borrow ~30%, Supply ~10%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  300000000000000000000,  -- 30.0%
+  100000000000000000000,  -- 10.0%
+  300000000000000000000,
+  100000000000000000000,
+  0,
+  DATETIME('now','-29 days')
+);
+
+----------------------------------------------------------------------
+-- Day -28: Borrow ~28.5%, Supply ~9.8%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  285000000000000000000,  -- 28.5%
+  98000000000000000000,   -- 9.8%
+  285000000000000000000,
+  98000000000000000000,
+  0,
+  DATETIME('now','-28 days')
+);
+
+----------------------------------------------------------------------
+-- Day -27: Borrow ~27%, Supply ~9.6%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  270000000000000000000,  -- 27.0%
+  96000000000000000000,   -- 9.6%
+  270000000000000000000,
+  96000000000000000000,
+  0,
+  DATETIME('now','-27 days')
+);
+
+----------------------------------------------------------------------
+-- Day -26: Borrow ~25.5%, Supply ~9.4%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  255000000000000000000,  -- 25.5%
+  94000000000000000000,   -- 9.4%
+  255000000000000000000,
+  94000000000000000000,
+  0,
+  DATETIME('now','-26 days')
+);
+
+----------------------------------------------------------------------
+-- Day -25: Borrow ~24%, Supply ~9.2%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  240000000000000000000,  -- 24.0%
+  92000000000000000000,   -- 9.2%
+  240000000000000000000,
+  92000000000000000000,
+  0,
+  DATETIME('now','-25 days')
+);
+
+----------------------------------------------------------------------
+-- Day -24: Borrow ~23%, Supply ~9.1%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  230000000000000000000,  -- 23.0%
+  91000000000000000000,   -- 9.1%
+  230000000000000000000,
+  91000000000000000000,
+  0,
+  DATETIME('now','-24 days')
+);
+
+----------------------------------------------------------------------
+-- Day -23: Borrow ~22%, Supply ~9.0%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  220000000000000000000,  -- 22.0%
+  90000000000000000000,   -- 9.0%
+  220000000000000000000,
+  90000000000000000000,
+  0,
+  DATETIME('now','-23 days')
+);
+
+----------------------------------------------------------------------
+-- Day -22: Borrow ~21%, Supply ~8.8%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  210000000000000000000,  -- 21.0%
+  88000000000000000000,   -- 8.8%
+  210000000000000000000,
+  88000000000000000000,
+  0,
+  DATETIME('now','-22 days')
+);
+
+----------------------------------------------------------------------
+-- Day -21: Borrow ~20%, Supply ~8.6%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  200000000000000000000,  -- 20.0%
+  86000000000000000000,   -- 8.6%
+  200000000000000000000,
+  86000000000000000000,
+  0,
+  DATETIME('now','-21 days')
+);
+
+----------------------------------------------------------------------
+-- Day -20: Borrow ~19%, Supply ~8.4%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  190000000000000000000,  -- 19.0%
+  84000000000000000000,   -- 8.4%
+  190000000000000000000,
+  84000000000000000000,
+  0,
+  DATETIME('now','-20 days')
+);
+
+----------------------------------------------------------------------
+-- Day -19: Borrow ~18%, Supply ~8.2%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  180000000000000000000,  -- 18.0%
+  82000000000000000000,   -- 8.2%
+  180000000000000000000,
+  82000000000000000000,
+  0,
+  DATETIME('now','-19 days')
+);
+
+----------------------------------------------------------------------
+-- Day -18: Borrow ~17%, Supply ~8.0%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  170000000000000000000,  -- 17.0%
+  80000000000000000000,   -- 8.0%
+  170000000000000000000,
+  80000000000000000000,
+  0,
+  DATETIME('now','-18 days')
+);
+
+----------------------------------------------------------------------
+-- Day -17: Borrow ~16%, Supply ~7.8%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  160000000000000000000,  -- 16.0%
+  78000000000000000000,   -- 7.8%
+  160000000000000000000,
+  78000000000000000000,
+  0,
+  DATETIME('now','-17 days')
+);
+
+----------------------------------------------------------------------
+-- Day -16: Borrow ~15.5%, Supply ~7.7%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  155000000000000000000,  -- 15.5%
+  77000000000000000000,   -- 7.7%
+  155000000000000000000,
+  77000000000000000000,
+  0,
+  DATETIME('now','-16 days')
+);
+
+----------------------------------------------------------------------
+-- Day -15: Borrow ~15%, Supply ~7.6%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  150000000000000000000,  -- 15.0%
+  76000000000000000000,   -- 7.6%
+  150000000000000000000,
+  76000000000000000000,
+  0,
+  DATETIME('now','-15 days')
+);
+
+----------------------------------------------------------------------
+-- Day -14 (Feb 05 data point): Borrow ~14.86%, Supply ~7.91%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  148600000000000000000,  -- 14.86%
+  79100000000000000000,   -- 7.91%
+  148600000000000000000,
+  79100000000000000000,
+  0,
+  DATETIME('now','-14 days')
+);
+
+----------------------------------------------------------------------
+-- Day -13: Borrow ~14.5%, Supply ~7.8%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  145000000000000000000,  -- 14.5%
+  78000000000000000000,   -- 7.8%
+  145000000000000000000,
+  78000000000000000000,
+  0,
+  DATETIME('now','-13 days')
+);
+
+----------------------------------------------------------------------
+-- Day -12: Borrow ~14%, Supply ~7.6%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  140000000000000000000,  -- 14.0%
+  76000000000000000000,   -- 7.6%
+  140000000000000000000,
+  76000000000000000000,
+  0,
+  DATETIME('now','-12 days')
+);
+
+----------------------------------------------------------------------
+-- Day -11: Borrow ~13.5%, Supply ~7.4%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  135000000000000000000,  -- 13.5%
+  74000000000000000000,   -- 7.4%
+  135000000000000000000,
+  74000000000000000000,
+  0,
+  DATETIME('now','-11 days')
+);
+
+----------------------------------------------------------------------
+-- Day -10: Borrow ~13%, Supply ~7.3%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  130000000000000000000,  -- 13.0%
+  73000000000000000000,   -- 7.3%
+  130000000000000000000,
+  73000000000000000000,
+  0,
+  DATETIME('now','-10 days')
+);
+
+----------------------------------------------------------------------
+-- Day -9: Borrow ~12.5%, Supply ~7.2%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  125000000000000000000,  -- 12.5%
+  72000000000000000000,   -- 7.2%
+  125000000000000000000,
+  72000000000000000000,
+  0,
+  DATETIME('now','-9 days')
+);
+
+----------------------------------------------------------------------
+-- Day -8: Borrow ~12%, Supply ~7.1%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  120000000000000000000,  -- 12.0%
+  71000000000000000000,   -- 7.1%
+  120000000000000000000,
+  71000000000000000000,
+  0,
+  DATETIME('now','-8 days')
+);
+
+----------------------------------------------------------------------
+-- Day -7: Borrow ~11.5%, Supply ~7.0%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  115000000000000000000,  -- 11.5%
+  70000000000000000000,   -- 7.0%
+  115000000000000000000,
+  70000000000000000000,
+  0,
+  DATETIME('now','-7 days')
+);
+
+----------------------------------------------------------------------
+-- Day -6: Borrow ~11%, Supply ~6.9%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  110000000000000000000,  -- 11.0%
+  69000000000000000000,   -- 6.9%
+  110000000000000000000,
+  69000000000000000000,
+  0,
+  DATETIME('now','-6 days')
+);
+
+----------------------------------------------------------------------
+-- Day -5: Borrow ~10.8%, Supply ~6.8%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  108000000000000000000,  -- 10.8%
+  68000000000000000000,   -- 6.8%
+  108000000000000000000,
+  68000000000000000000,
+  0,
+  DATETIME('now','-5 days')
+);
+
+----------------------------------------------------------------------
+-- Day -4: Borrow ~10.6%, Supply ~6.75%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  106000000000000000000,  -- 10.6%
+  67500000000000000000,   -- 6.75%
+  106000000000000000000,
+  67500000000000000000,
+  0,
+  DATETIME('now','-4 days')
+);
+
+----------------------------------------------------------------------
+-- Day -3: Borrow ~10.4%, Supply ~6.7%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  104000000000000000000,  -- 10.4%
+  67000000000000000000,   -- 6.7%
+  104000000000000000000,
+  67000000000000000000,
+  0,
+  DATETIME('now','-3 days')
+);
+
+----------------------------------------------------------------------
+-- Day -2: Borrow ~10.2%, Supply ~6.68%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  102000000000000000000,  -- 10.2%
+  66800000000000000000,   -- 6.68%
+  102000000000000000000,
+  66800000000000000000,
+  0,
+  DATETIME('now','-2 days')
+);
+
+----------------------------------------------------------------------
+-- Day -1: Borrow ~10.1%, Supply ~6.67%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  101000000000000000000,  -- 10.1%
+  66700000000000000000,   -- 6.67%
+  101000000000000000000,
+  66700000000000000000,
+  0,
+  DATETIME('now','-1 days')
+);
+
+----------------------------------------------------------------------
+-- Day 0 (today): Borrow ~10%, Supply ~6.66%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price, total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'JLP Pool',
+  'JLP Token',
+  'JLP',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0','0',
+  100000000000000000000,  -- 10.0%
+  66600000000000000000,   -- 6.66%
+  100000000000000000000,
+  66600000000000000000,
+  0,
+  DATETIME('now')
+);

@@ -1,0 +1,856 @@
+-- Schema for reference:
+--   id INTEGER PRIMARY KEY AUTOINCREMENT,
+--   protocol_name VARCHAR(64) NOT NULL,
+--   market_name VARCHAR(64) NOT NULL,
+--   token_name VARCHAR(64) NOT NULL,
+--   token_symbol VARCHAR(10) NOT NULL,
+--   token_mint VARCHAR(64) NOT NULL,
+--   market_price UNSIGNED BIGINT NOT NULL,
+--   total_supply DECIMAL(39,0) NOT NULL,
+--   total_borrows DECIMAL(39,0) NOT NULL,
+--   borrow_rate DECIMAL(39,0) NOT NULL,
+--   supply_rate DECIMAL(39,0) NOT NULL,
+--   borrow_apy DECIMAL(39,0) NOT NULL,
+--   supply_apy DECIMAL(39,0) NOT NULL,
+--   slot UNSIGNED BIGINT NOT NULL,
+--   timestamp DATETIME NOT NULL;
+
+----------------------------------------------------------------------
+-- Day -29 : Borrow ~13.2%, Supply ~7.6%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  132000000000000000000, -- 13.2%
+  76000000000000000000,  -- 7.6%
+  132000000000000000000,
+  76000000000000000000,
+  0,
+  DATETIME('now','-29 days')
+);
+
+----------------------------------------------------------------------
+-- Day -28 : Borrow ~13.0%, Supply ~7.5%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  130000000000000000000, -- 13.0%
+  75000000000000000000,  -- 7.5%
+  130000000000000000000,
+  75000000000000000000,
+  0,
+  DATETIME('now','-28 days')
+);
+
+----------------------------------------------------------------------
+-- Day -27 : Borrow ~12.8%, Supply ~7.45%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  128000000000000000000, -- 12.8%
+  74500000000000000000,  -- 7.45%
+  128000000000000000000,
+  74500000000000000000,
+  0,
+  DATETIME('now','-27 days')
+);
+
+----------------------------------------------------------------------
+-- Day -26 : Borrow ~12.6%, Supply ~7.4%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  126000000000000000000, -- 12.6%
+  74000000000000000000,  -- 7.4%
+  126000000000000000000,
+  74000000000000000000,
+  0,
+  DATETIME('now','-26 days')
+);
+
+----------------------------------------------------------------------
+-- Day -25 : Borrow ~12.4%, Supply ~7.3%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  124000000000000000000, -- 12.4%
+  73000000000000000000,  -- 7.3%
+  124000000000000000000,
+  73000000000000000000,
+  0,
+  DATETIME('now','-25 days')
+);
+
+----------------------------------------------------------------------
+-- Day -24 : Borrow ~12.2%, Supply ~7.2%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  122000000000000000000, -- 12.2%
+  72000000000000000000,  -- 7.2%
+  122000000000000000000,
+  72000000000000000000,
+  0,
+  DATETIME('now','-24 days')
+);
+
+----------------------------------------------------------------------
+-- Day -23 : Borrow ~12.0%, Supply ~7.1%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  120000000000000000000, -- 12.0%
+  71000000000000000000,  -- 7.1%
+  120000000000000000000,
+  71000000000000000000,
+  0,
+  DATETIME('now','-23 days')
+);
+
+----------------------------------------------------------------------
+-- Day -22 : Borrow ~11.8%, Supply ~7.0%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  118000000000000000000, -- 11.8%
+  70000000000000000000,  -- 7.0%
+  118000000000000000000,
+  70000000000000000000,
+  0,
+  DATETIME('now','-22 days')
+);
+
+----------------------------------------------------------------------
+-- Day -21 : Borrow ~11.6%, Supply ~6.9%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  116000000000000000000, -- 11.6%
+  69000000000000000000,  -- 6.9%
+  116000000000000000000,
+  69000000000000000000,
+  0,
+  DATETIME('now','-21 days')
+);
+
+----------------------------------------------------------------------
+-- Day -20 : Borrow ~11.4%, Supply ~6.8%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  114000000000000000000, -- 11.4%
+  68000000000000000000,  -- 6.8%
+  114000000000000000000,
+  68000000000000000000,
+  0,
+  DATETIME('now','-20 days')
+);
+
+----------------------------------------------------------------------
+-- Day -19 : Borrow ~11.2%, Supply ~6.7%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  112000000000000000000, -- 11.2%
+  67000000000000000000,  -- 6.7%
+  112000000000000000000,
+  67000000000000000000,
+  0,
+  DATETIME('now','-19 days')
+);
+
+----------------------------------------------------------------------
+-- Day -18 : Borrow ~11.0%, Supply ~6.6%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  110000000000000000000, -- 11.0%
+  66000000000000000000,  -- 6.6%
+  110000000000000000000,
+  66000000000000000000,
+  0,
+  DATETIME('now','-18 days')
+);
+
+----------------------------------------------------------------------
+-- Day -17 : Borrow ~10.8%, Supply ~6.5%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  108000000000000000000, -- 10.8%
+  65000000000000000000,  -- 6.5%
+  108000000000000000000,
+  65000000000000000000,
+  0,
+  DATETIME('now','-17 days')
+);
+
+----------------------------------------------------------------------
+-- Day -16 : Borrow ~10.6%, Supply ~6.4%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  106000000000000000000, -- 10.6%
+  64000000000000000000,  -- 6.4%
+  106000000000000000000,
+  64000000000000000000,
+  0,
+  DATETIME('now','-16 days')
+);
+
+----------------------------------------------------------------------
+-- Day -15 : Borrow ~10.4%, Supply ~6.3%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  104000000000000000000, -- 10.4%
+  63000000000000000000,  -- 6.3%
+  104000000000000000000,
+  63000000000000000000,
+  0,
+  DATETIME('now','-15 days')
+);
+
+----------------------------------------------------------------------
+-- Day -14 : Borrow ~10.2%, Supply ~6.2%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  102000000000000000000, -- 10.2%
+  62000000000000000000,  -- 6.2%
+  102000000000000000000,
+  62000000000000000000,
+  0,
+  DATETIME('now','-14 days')
+);
+
+----------------------------------------------------------------------
+-- Day -13 : Borrow ~10.0%, Supply ~6.1%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  100000000000000000000, -- 10.0%
+  61000000000000000000,  -- 6.1%
+  100000000000000000000,
+  61000000000000000000,
+  0,
+  DATETIME('now','-13 days')
+);
+
+----------------------------------------------------------------------
+-- Day -12 : Borrow ~9.8%, Supply ~6.0%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  98000000000000000000, -- 9.8%
+  60000000000000000000, -- 6.0%
+  98000000000000000000,
+  60000000000000000000,
+  0,
+  DATETIME('now','-12 days')
+);
+
+----------------------------------------------------------------------
+-- Day -11 : Borrow ~9.6%, Supply ~5.8%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  96000000000000000000, -- 9.6%
+  58000000000000000000, -- 5.8%
+  96000000000000000000,
+  58000000000000000000,
+  0,
+  DATETIME('now','-11 days')
+);
+
+----------------------------------------------------------------------
+-- Day -10 : Borrow ~9.4%, Supply ~5.7%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  94000000000000000000, -- 9.4%
+  57000000000000000000, -- 5.7%
+  94000000000000000000,
+  57000000000000000000,
+  0,
+  DATETIME('now','-10 days')
+);
+
+----------------------------------------------------------------------
+-- Day -9 : Borrow ~9.2%, Supply ~5.6%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  92000000000000000000, -- 9.2%
+  56000000000000000000, -- 5.6%
+  92000000000000000000,
+  56000000000000000000,
+  0,
+  DATETIME('now','-9 days')
+);
+
+----------------------------------------------------------------------
+-- Day -8 : Borrow ~9.0%, Supply ~5.5%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  90000000000000000000, -- 9.0%
+  55000000000000000000, -- 5.5%
+  90000000000000000000,
+  55000000000000000000,
+  0,
+  DATETIME('now','-8 days')
+);
+
+----------------------------------------------------------------------
+-- Day -7 : Borrow ~8.8%, Supply ~5.4%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  88000000000000000000, -- 8.8%
+  54000000000000000000, -- 5.4%
+  88000000000000000000,
+  54000000000000000000,
+  0,
+  DATETIME('now','-7 days')
+);
+
+----------------------------------------------------------------------
+-- Day -6 : Borrow ~8.7%, Supply ~5.3%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  87000000000000000000, -- 8.7%
+  53000000000000000000, -- 5.3%
+  87000000000000000000,
+  53000000000000000000,
+  0,
+  DATETIME('now','-6 days')
+);
+
+----------------------------------------------------------------------
+-- Day -5 : Borrow ~8.6%, Supply ~5.2%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  86000000000000000000, -- 8.6%
+  52000000000000000000, -- 5.2%
+  86000000000000000000,
+  52000000000000000000,
+  0,
+  DATETIME('now','-5 days')
+);
+
+----------------------------------------------------------------------
+-- Day -4 : Borrow ~8.5%, Supply ~5.1%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  85000000000000000000, -- 8.5%
+  51000000000000000000, -- 5.1%
+  85000000000000000000,
+  51000000000000000000,
+  0,
+  DATETIME('now','-4 days')
+);
+
+----------------------------------------------------------------------
+-- Day -3 : Borrow ~8.5%, Supply ~5.0%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  85000000000000000000, -- 8.5%
+  50000000000000000000, -- 5.0%
+  85000000000000000000,
+  50000000000000000000,
+  0,
+  DATETIME('now','-3 days')
+);
+
+----------------------------------------------------------------------
+-- Day -2 : Borrow ~8.5%, Supply ~4.8%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  85000000000000000000, -- 8.5%
+  48000000000000000000, -- 4.8%
+  85000000000000000000,
+  48000000000000000000,
+  0,
+  DATETIME('now','-2 days')
+);
+
+----------------------------------------------------------------------
+-- Day -1 : Borrow ~8.5%, Supply ~4.6%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  85000000000000000000, -- 8.5%
+  46000000000000000000, -- 4.6%
+  85000000000000000000,
+  46000000000000000000,
+  0,
+  DATETIME('now','-1 days')
+);
+
+----------------------------------------------------------------------
+-- Day 0 (today) : Borrow ~8.5%, Supply ~4.3%
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply, total_borrows,
+  borrow_rate, supply_rate,
+  borrow_apy, supply_apy,
+  slot, timestamp
+)
+VALUES (
+  'Save',
+  'Main Pool',
+  'Save Token',
+  'SAVE',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '0', '0',
+  85000000000000000000, -- 8.5%
+  43000000000000000000, -- 4.3%
+  85000000000000000000,
+  43000000000000000000,
+  0,
+  DATETIME('now')
+);

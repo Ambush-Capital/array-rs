@@ -11,17 +11,24 @@ fn format_rate(rate: u128) -> String {
 }
 
 #[derive(Serialize)]
-struct ApiLendingReserve {
-    protocol_name: String,
-    market_name: String,
-    total_supply: u128,
-    total_borrows: u128,
-    borrow_rate: String,
-    supply_rate: String,
-    borrow_apy: String,
-    supply_apy: String,
-    slot: u64,
-    collateral_assets: Vec<MintAsset>,
+pub struct ApiLendingReserve {
+    pub protocol_name: String,
+    pub market_name: String,
+    pub total_supply: u128,
+    pub total_borrows: u128,
+    #[serde(skip_serializing)]
+    pub borrow_rate: String,
+    pub supply_rate: String,
+    #[serde(serialize_with = "serialize_rate")]
+    pub supply_rate_7d: f64,
+    #[serde(serialize_with = "serialize_rate")]
+    pub supply_rate_30d: f64,
+    #[serde(skip_serializing)]
+    pub borrow_apy: String,
+    #[serde(skip_serializing)]
+    pub supply_apy: String,
+    #[serde(skip_serializing)]
+    pub slot: u64,
 }
 
 impl From<LendingReserve> for ApiLendingReserve {
@@ -36,18 +43,19 @@ impl From<LendingReserve> for ApiLendingReserve {
             borrow_apy: format_rate(reserve.borrow_apy),
             supply_apy: format_rate(reserve.supply_apy),
             slot: reserve.slot,
-            collateral_assets: reserve.collateral_assets,
+            supply_rate_30d: 0.0,
+            supply_rate_7d: 0.0,
         }
     }
 }
 
 #[derive(Serialize)]
-struct ApiMintAsset {
-    name: String,
-    symbol: String,
-    market_price_sf: u64,
-    mint: String,
-    lending_reserves: Vec<ApiLendingReserve>,
+pub struct ApiMintAsset {
+    pub name: String,
+    pub symbol: String,
+    pub market_price_sf: u64,
+    pub mint: String,
+    pub lending_reserves: Vec<ApiLendingReserve>,
 }
 
 impl From<MintAsset> for ApiMintAsset {
@@ -83,48 +91,99 @@ impl ApiService {
         Ok(Self { db_pool: pool, client })
     }
 
-    pub async fn get_current_markets(&self) -> Result<Vec<MintAsset>> {
+    pub async fn get_current_markets(&self) -> Result<Vec<ApiMintAsset>> {
         debug!("Fetching current markets from chain-api");
         // Forward request to chain-api
         let response =
             self.client.get("http://localhost:3000/current_lending_markets").send().await?;
 
-        let markets = response.json::<Vec<MintAsset>>().await?;
+        let markets = response
+            .json::<Vec<MintAsset>>()
+            .await?
+            .into_iter()
+            .map(ApiMintAsset::from)
+            .collect::<Vec<ApiMintAsset>>();
+
+        // Get historical market data to populate 7d and 30d averages
+        let historical_markets = self.get_historical_markets().await?;
+
+        // Update markets with historical rate data
+        let markets: Vec<ApiMintAsset> = markets
+            .into_iter()
+            .map(|mut market| {
+                // Update each lending reserve with historical rates if available
+                market.lending_reserves = market
+                    .lending_reserves
+                    .into_iter()
+                    .map(|mut reserve| {
+                        // Find matching historical data
+                        if let Some(historical) = historical_markets.iter().find(|h| {
+                            h.protocol_name == reserve.protocol_name
+                                && h.market_name == reserve.market_name
+                                && h.token_mint == market.mint
+                        }) {
+                            reserve.supply_rate_7d = historical.supply_rate_7d;
+                            reserve.supply_rate_30d = historical.supply_rate_30d;
+                        }
+                        reserve
+                    })
+                    .collect();
+                market
+            })
+            .collect();
+
         info!("Retrieved {} current markets from chain-api", markets.len());
         Ok(markets)
     }
 
-    pub async fn get_historical_markets(&self) -> Result<Vec<HistoricalMarketData>> {
+    pub async fn get_historical_markets(&self) -> Result<Vec<HistoricalMarketDataAverage>> {
         debug!("Fetching historical markets from database");
-        // Query all market data for the last 5 unique timestamps
-        let markets = sqlx::query_as::<_, HistoricalMarketData>(
+        // Query average supply rates for 7 and 30 day periods
+        let markets = sqlx::query_as::<_, HistoricalMarketDataAverage>(
             r#"
-            WITH recent_timestamps AS (
-                SELECT DISTINCT timestamp
+            WITH recent_data AS (
+                SELECT 
+                    protocol_name,
+                    market_name,
+                    token_mint,
+                    supply_rate,
+                    timestamp,
+                    token_name,
+                    token_symbol
                 FROM lending_markets
-                ORDER BY timestamp DESC
-                LIMIT 5
+                WHERE timestamp >= datetime('now', '-30 days')
+            ),
+            averages AS (
+                SELECT 
+                    protocol_name,
+                    market_name,
+                    token_mint,
+                    token_name,
+                    token_symbol,
+                    AVG(CAST(supply_rate AS FLOAT)) as supply_rate_30d,
+                    AVG(CASE 
+                        WHEN timestamp >= datetime('now', '-7 days') 
+                        THEN CAST(supply_rate AS FLOAT) 
+                    END) as supply_rate_7d
+                FROM recent_data
+                GROUP BY protocol_name, market_name, token_mint
             )
             SELECT 
-                protocol_name, market_name, token_name, token_symbol, token_mint,
-                market_price, total_supply, total_borrows, borrow_rate, supply_rate,
-                borrow_apy, supply_apy, slot, timestamp
-            FROM lending_markets
-            WHERE timestamp IN (SELECT timestamp FROM recent_timestamps)
-            ORDER BY timestamp DESC, market_name ASC
+                protocol_name,
+                market_name,
+                token_name,
+                token_symbol,
+                token_mint,
+                supply_rate_7d,
+                supply_rate_30d
+            FROM averages
+            ORDER BY protocol_name, market_name
             "#,
         )
         .fetch_all(&self.db_pool)
         .await?;
 
-        info!("Retrieved {} historical market entries across 5 timestamps", markets.len());
-        if !markets.is_empty() {
-            debug!(
-                "Time range: from {} to {}",
-                markets.last().unwrap().timestamp,
-                markets.first().unwrap().timestamp
-            );
-        }
+        info!("Retrieved market averages for {} markets", markets.len());
         Ok(markets)
     }
 }
@@ -137,32 +196,42 @@ pub struct HistoricalMarketData {
     pub token_symbol: String,
     pub token_mint: String,
     pub market_price: i64,
-    pub total_supply: String,
-    pub total_borrows: String,
+    pub total_supply: i64,
+    pub total_borrows: i64,
     #[serde(serialize_with = "serialize_rate")]
-    pub borrow_rate: String,
+    pub borrow_rate: f64,
     #[serde(serialize_with = "serialize_rate")]
-    pub supply_rate: String,
+    pub supply_rate: f64,
     #[serde(serialize_with = "serialize_rate")]
-    pub borrow_apy: String,
+    pub supply_rate_7d: f64,
     #[serde(serialize_with = "serialize_rate")]
-    pub supply_apy: String,
+    pub supply_rate_30d: f64,
+    #[serde(serialize_with = "serialize_rate")]
+    pub borrow_apy: f64,
+    #[serde(serialize_with = "serialize_rate")]
+    pub supply_apy: f64,
     pub slot: u64,
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
-fn serialize_rate<S>(rate_str: &str, serializer: S) -> Result<S::Ok, S::Error>
+#[derive(serde::Serialize, sqlx::FromRow)]
+pub struct HistoricalMarketDataAverage {
+    pub protocol_name: String,
+    pub market_name: String,
+    pub token_name: String,
+    pub token_symbol: String,
+    pub token_mint: String,
+    #[serde(serialize_with = "serialize_rate")]
+    pub supply_rate_7d: f64,
+    #[serde(serialize_with = "serialize_rate")]
+    pub supply_rate_30d: f64,
+}
+
+fn serialize_rate<S>(rate: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    // Parse the string as a u128 (or f64 if parsing fails)
-    let rate_val = match rate_str.parse::<u128>() {
-        Ok(val) => (val as f64) / 1e18,
-        Err(_) => match rate_str.parse::<f64>() {
-            Ok(val) => val / 1e18,
-            Err(_) => return serializer.serialize_str("0.0"), // fallback
-        },
-    };
+    let rate_val = *rate / 1e19;
 
     // Convert to string with appropriate precision and no trailing zeros
     let formatted =
@@ -184,7 +253,7 @@ async fn get_current_markets(
     match service.get_current_markets().await {
         Ok(markets) => {
             info!("Successfully returned {} current markets", markets.len());
-            (StatusCode::OK, Json(markets.into_iter().map(ApiMintAsset::from).collect()))
+            (StatusCode::OK, Json(markets))
         }
         Err(e) => {
             error!("Error fetching current markets: {}", e);
@@ -195,7 +264,7 @@ async fn get_current_markets(
 
 async fn get_historical_markets(
     State(service): State<ApiService>,
-) -> (StatusCode, Json<Vec<HistoricalMarketData>>) {
+) -> (StatusCode, Json<Vec<HistoricalMarketDataAverage>>) {
     match service.get_historical_markets().await {
         Ok(markets) => {
             info!("Successfully returned {} historical market entries", markets.len());

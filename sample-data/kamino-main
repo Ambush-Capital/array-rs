@@ -1,0 +1,1006 @@
+-- Schema reference for lending_markets:
+--   id INTEGER PRIMARY KEY AUTOINCREMENT,
+--   protocol_name VARCHAR(64) NOT NULL,
+--   market_name VARCHAR(64) NOT NULL,
+--   token_name VARCHAR(64) NOT NULL,
+--   token_symbol VARCHAR(10) NOT NULL,
+--   token_mint VARCHAR(64) NOT NULL,
+--   market_price UNSIGNED BIGINT NOT NULL,
+--   total_supply DECIMAL(39,0) NOT NULL,
+--   total_borrows DECIMAL(39,0) NOT NULL,
+--   borrow_rate DECIMAL(39,0) NOT NULL,
+--   supply_rate DECIMAL(39,0) NOT NULL,
+--   borrow_apy DECIMAL(39,0) NOT NULL,
+--   supply_apy DECIMAL(39,0) NOT NULL,
+--   slot UNSIGNED BIGINT NOT NULL,
+--   timestamp DATETIME NOT NULL;
+
+----------------------------------------------------------------------
+-- Day -29
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,    -- e.g., 195M
+  total_borrows,   -- e.g., 205M
+  borrow_rate,     -- e.g., 8.9%
+  supply_rate,     -- e.g., 5.5%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '195000000',
+  '205000000',
+  89000000000000000000,  -- 8.9%
+  55000000000000000000,  -- 5.5%
+  89000000000000000000,
+  55000000000000000000,
+  0,
+  DATETIME('now','-29 days')
+);
+
+----------------------------------------------------------------------
+-- Day -28
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.1%
+  supply_rate,   -- 5.6%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '200000000',
+  '210000000',
+  91000000000000000000,  -- 9.1%
+  56000000000000000000,  -- 5.6%
+  91000000000000000000,
+  56000000000000000000,
+  0,
+  DATETIME('now','-28 days')
+);
+
+----------------------------------------------------------------------
+-- Day -27
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.0%
+  supply_rate,   -- 5.4%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '205000000',
+  '212000000',
+  90000000000000000000,  -- 9.0%
+  54000000000000000000,  -- 5.4%
+  90000000000000000000,
+  54000000000000000000,
+  0,
+  DATETIME('now','-27 days')
+);
+
+----------------------------------------------------------------------
+-- Day -26 (spike in supply)
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,   -- 260M spike
+  total_borrows,  -- 220M
+  borrow_rate,    -- 10.0%
+  supply_rate,    -- 6.0%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '260000000',
+  '220000000',
+  100000000000000000000, -- 10.0%
+  60000000000000000000,  -- 6.0%
+  100000000000000000000,
+  60000000000000000000,
+  0,
+  DATETIME('now','-26 days')
+);
+
+----------------------------------------------------------------------
+-- Day -25
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.2%
+  supply_rate,   -- 5.7%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '210000000',
+  '215000000',
+  92000000000000000000,  -- 9.2%
+  57000000000000000000,  -- 5.7%
+  92000000000000000000,
+  57000000000000000000,
+  0,
+  DATETIME('now','-25 days')
+);
+
+----------------------------------------------------------------------
+-- Day -24 (dip in borrow)
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 8.8%
+  supply_rate,   -- 5.3%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '200000000',
+  '205000000',
+  88000000000000000000,  -- 8.8%
+  53000000000000000000,  -- 5.3%
+  88000000000000000000,
+  53000000000000000000,
+  0,
+  DATETIME('now','-24 days')
+);
+
+----------------------------------------------------------------------
+-- Day -23
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 8.5%
+  supply_rate,   -- 5.0%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '195000000',
+  '200000000',
+  85000000000000000000,  -- 8.5%
+  50000000000000000000,  -- 5.0%
+  85000000000000000000,
+  50000000000000000000,
+  0,
+  DATETIME('now','-23 days')
+);
+
+----------------------------------------------------------------------
+-- Day -22
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 8.7%
+  supply_rate,   -- 5.2%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '200000000',
+  '210000000',
+  87000000000000000000,  -- 8.7%
+  52000000000000000000,  -- 5.2%
+  87000000000000000000,
+  52000000000000000000,
+  0,
+  DATETIME('now','-22 days')
+);
+
+----------------------------------------------------------------------
+-- Day -21
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.1%
+  supply_rate,   -- 5.6%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '205000000',
+  '215000000',
+  91000000000000000000,  -- 9.1%
+  56000000000000000000,  -- 5.6%
+  91000000000000000000,
+  56000000000000000000,
+  0,
+  DATETIME('now','-21 days')
+);
+
+----------------------------------------------------------------------
+-- Day -20 (spike in borrow)
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 10.2%
+  supply_rate,   -- 6.1%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '210000000',
+  '230000000',            -- big borrow spike
+  102000000000000000000, -- 10.2%
+  61000000000000000000,  -- 6.1%
+  102000000000000000000,
+  61000000000000000000,
+  0,
+  DATETIME('now','-20 days')
+);
+
+----------------------------------------------------------------------
+-- Day -19
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.4%
+  supply_rate,   -- 5.8%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '215000000',
+  '225000000',
+  94000000000000000000,  -- 9.4%
+  58000000000000000000,  -- 5.8%
+  94000000000000000000,
+  58000000000000000000,
+  0,
+  DATETIME('now','-19 days')
+);
+
+----------------------------------------------------------------------
+-- Day -18
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.8%
+  supply_rate,   -- 5.9%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '220000000',
+  '210000000',
+  98000000000000000000,  -- 9.8%
+  59000000000000000000,  -- 5.9%
+  98000000000000000000,
+  59000000000000000000,
+  0,
+  DATETIME('now','-18 days')
+);
+
+----------------------------------------------------------------------
+-- Day -17
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.6%
+  supply_rate,   -- 5.4%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '210000000',
+  '220000000',
+  96000000000000000000,  -- 9.6%
+  54000000000000000000,  -- 5.4%
+  96000000000000000000,
+  54000000000000000000,
+  0,
+  DATETIME('now','-17 days')
+);
+
+----------------------------------------------------------------------
+-- Day -16
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.2%
+  supply_rate,   -- 5.6%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '205000000',
+  '215000000',
+  92000000000000000000,  -- 9.2%
+  56000000000000000000,  -- 5.6%
+  92000000000000000000,
+  56000000000000000000,
+  0,
+  DATETIME('now','-16 days')
+);
+
+----------------------------------------------------------------------
+-- Day -15
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 8.9%
+  supply_rate,   -- 5.2%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '200000000',
+  '210000000',
+  89000000000000000000,  -- 8.9%
+  52000000000000000000,  -- 5.2%
+  89000000000000000000,
+  52000000000000000000,
+  0,
+  DATETIME('now','-15 days')
+);
+
+----------------------------------------------------------------------
+-- Day -14
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 8.7%
+  supply_rate,   -- 5.5%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '195000000',
+  '205000000',
+  87000000000000000000,  -- 8.7%
+  55000000000000000000,  -- 5.5%
+  87000000000000000000,
+  55000000000000000000,
+  0,
+  DATETIME('now','-14 days')
+);
+
+----------------------------------------------------------------------
+-- Day -13
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.0%
+  supply_rate,   -- 5.4%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '200000000',
+  '210000000',
+  90000000000000000000,  -- 9.0%
+  54000000000000000000,  -- 5.4%
+  90000000000000000000,
+  54000000000000000000,
+  0,
+  DATETIME('now','-13 days')
+);
+
+----------------------------------------------------------------------
+-- Day -12
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 8.5%
+  supply_rate,   -- 5.3%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '195000000',
+  '205000000',
+  85000000000000000000,  -- 8.5%
+  53000000000000000000,  -- 5.3%
+  85000000000000000000,
+  53000000000000000000,
+  0,
+  DATETIME('now','-12 days')
+);
+
+----------------------------------------------------------------------
+-- Day -11
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.1%
+  supply_rate,   -- 5.6%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '200000000',
+  '210000000',
+  91000000000000000000,  -- 9.1%
+  56000000000000000000,  -- 5.6%
+  91000000000000000000,
+  56000000000000000000,
+  0,
+  DATETIME('now','-11 days')
+);
+
+----------------------------------------------------------------------
+-- Day -10
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.3%
+  supply_rate,   -- 5.7%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '205000000',
+  '215000000',
+  93000000000000000000,  -- 9.3%
+  57000000000000000000,  -- 5.7%
+  93000000000000000000,
+  57000000000000000000,
+  0,
+  DATETIME('now','-10 days')
+);
+
+----------------------------------------------------------------------
+-- Day -9
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.6%
+  supply_rate,   -- 5.8%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '210000000',
+  '220000000',
+  96000000000000000000,  -- 9.6%
+  58000000000000000000,  -- 5.8%
+  96000000000000000000,
+  58000000000000000000,
+  0,
+  DATETIME('now','-9 days')
+);
+
+----------------------------------------------------------------------
+-- Day -8
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.2%
+  supply_rate,   -- 5.5%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '205000000',
+  '215000000',
+  92000000000000000000,  -- 9.2%
+  55000000000000000000,  -- 5.5%
+  92000000000000000000,
+  55000000000000000000,
+  0,
+  DATETIME('now','-8 days')
+);
+
+----------------------------------------------------------------------
+-- Day -7 (matching your 12 Feb data point)
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,    -- e.g., 200M
+  total_borrows,   -- e.g., 210M
+  borrow_rate,     -- 9.38%
+  supply_rate,     -- 6.24%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '200000000',
+  '210000000',
+  93800000000000000000,   -- 9.38%
+  62400000000000000000,   -- 6.24%
+  93800000000000000000,
+  62400000000000000000,
+  0,
+  DATETIME('now','-7 days')
+);
+
+----------------------------------------------------------------------
+-- Day -6
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.1%
+  supply_rate,   -- 5.7%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '205000000',
+  '215000000',
+  91000000000000000000,  -- 9.1%
+  57000000000000000000,  -- 5.7%
+  91000000000000000000,
+  57000000000000000000,
+  0,
+  DATETIME('now','-6 days')
+);
+
+----------------------------------------------------------------------
+-- Day -5
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 8.8%
+  supply_rate,   -- 5.3%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '200000000',
+  '210000000',
+  88000000000000000000,  -- 8.8%
+  53000000000000000000,  -- 5.3%
+  88000000000000000000,
+  53000000000000000000,
+  0,
+  DATETIME('now','-5 days')
+);
+
+----------------------------------------------------------------------
+-- Day -4
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.0%
+  supply_rate,   -- 5.6%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '205000000',
+  '215000000',
+  90000000000000000000,  -- 9.0%
+  56000000000000000000,  -- 5.6%
+  90000000000000000000,
+  56000000000000000000,
+  0,
+  DATETIME('now','-4 days')
+);
+
+----------------------------------------------------------------------
+-- Day -3
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.4%
+  supply_rate,   -- 5.9%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '210000000',
+  '220000000',
+  94000000000000000000,  -- 9.4%
+  59000000000000000000,  -- 5.9%
+  94000000000000000000,
+  59000000000000000000,
+  0,
+  DATETIME('now','-3 days')
+);
+
+----------------------------------------------------------------------
+-- Day -2
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.1%
+  supply_rate,   -- 5.5%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '205000000',
+  '215000000',
+  91000000000000000000,  -- 9.1%
+  55000000000000000000,  -- 5.5%
+  91000000000000000000,
+  55000000000000000000,
+  0,
+  DATETIME('now','-2 days')
+);
+
+----------------------------------------------------------------------
+-- Day -1
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.2%
+  supply_rate,   -- 5.6%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '210000000',
+  '220000000',
+  92000000000000000000,  -- 9.2%
+  56000000000000000000,  -- 5.6%
+  92000000000000000000,
+  56000000000000000000,
+  0,
+  DATETIME('now','-1 days')
+);
+
+----------------------------------------------------------------------
+-- Day 0 (today)
+----------------------------------------------------------------------
+INSERT INTO lending_markets (
+  protocol_name, market_name,
+  token_name, token_symbol, token_mint,
+  market_price,
+  total_supply,
+  total_borrows,
+  borrow_rate,   -- 9.4%
+  supply_rate,   -- 5.9%
+  borrow_apy,
+  supply_apy,
+  slot,
+  timestamp
+)
+VALUES (
+  'Kamino',
+  'Main Market',
+  'Main Token',
+  'MAIN',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  1,
+  '215000000',
+  '225000000',
+  94000000000000000000,  -- 9.4%
+  59000000000000000000,  -- 5.9%
+  94000000000000000000,
+  59000000000000000000,
+  0,
+  DATETIME('now')
+);

@@ -365,7 +365,7 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
 
                 asset.lending_reserves.push(LendingReserve {
                     protocol_name: "Drift".to_string(),
-                    market_name,
+                    market_name: market_name.trim().replace('\0', "").to_string(),
                     total_supply: market.get_deposits().unwrap_or(0)
                         * MARGINFI_SCALE_FACTOR as u128,
                     total_borrows: market.get_borrows().unwrap_or(0)

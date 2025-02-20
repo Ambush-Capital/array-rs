@@ -3,6 +3,8 @@ use chrono::Utc;
 use common::{LendingReserve, MintAsset};
 use log::{debug, error, info};
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
+use std::path::Path;
+use tokio::fs;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 pub struct Worker {
@@ -13,10 +15,12 @@ pub struct Worker {
 impl Worker {
     pub async fn new(db_url: &str, schedule: String) -> Result<Self> {
         // Create connection pool
+        info!("Attempting to connect to database at {}", db_url);
         let pool = SqlitePoolOptions::new().max_connections(5).connect(db_url).await?;
-        info!("Connected to database at {}", db_url);
+        info!("Successfully connected to database at {}", db_url);
 
         // Initialize tables
+        info!("Creating lending_markets table if it doesn't exist...");
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS lending_markets (
@@ -40,9 +44,66 @@ impl Worker {
         )
         .execute(&pool)
         .await?;
-        debug!("Ensured lending_markets table exists");
+        info!("Successfully created/verified lending_markets table schema");
+
+        // Load sample data if available
+        if let Err(e) = Worker::load_sample_data(&pool).await {
+            error!("Failed to load sample data: {}", e);
+        }
 
         Ok(Self { db_pool: pool, schedule })
+    }
+
+    async fn load_sample_data(pool: &Pool<Sqlite>) -> Result<()> {
+        // First check if the table is empty
+        info!("Checking if lending_markets table needs sample data...");
+        let row_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM lending_markets").fetch_one(pool).await?;
+
+        if row_count > 0 {
+            info!(
+                "lending_markets table already contains {} rows, skipping sample data loading",
+                row_count
+            );
+            return Ok(());
+        }
+
+        info!("Table is empty, attempting to load sample data...");
+        let sample_dir = Path::new("../sample-data");
+        if !sample_dir.exists() {
+            info!(
+                "No sample-data directory found at {:?}, skipping sample data loading",
+                sample_dir
+            );
+            return Ok(());
+        }
+        info!("Found sample-data directory at {:?}", sample_dir);
+
+        let mut dir = fs::read_dir(sample_dir).await?;
+        let mut files_loaded = 0;
+
+        while let Some(entry) = dir.next_entry().await? {
+            let path = entry.path();
+            if path.is_file() {
+                info!("Loading sample data from file: {:?}", path);
+                let content = fs::read_to_string(&path).await?;
+                match sqlx::query(&content).execute(pool).await {
+                    Ok(_) => {
+                        files_loaded += 1;
+                        info!(
+                            "Successfully executed SQL from {:?}",
+                            path.file_name().unwrap_or_default()
+                        );
+                    }
+                    Err(e) => {
+                        error!("Failed to execute SQL from {:?}: {}", path, e);
+                    }
+                }
+            }
+        }
+
+        info!("Sample data loading complete - loaded {} files successfully", files_loaded);
+        Ok(())
     }
 
     pub async fn start_market_sync(&self) -> Result<()> {
