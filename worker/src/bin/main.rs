@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
     // Initialize worker with SQLite database and schedule
     let db_name = env::var("DB_FILE").expect("DB_FILE must be set");
     let db_url = format!("sqlite://../{}", db_name);
-    let schedule = "0 */1 * * * *"; // Run every 60 minutes on the hour
+    let schedule = "0 */30 * * * *"; // Run every 60 minutes on the hour
     let worker = Worker::new(&db_url, schedule.to_string()).await?;
 
     info!("Starting worker with database '{}' and schedule '{}'", db_url, schedule);

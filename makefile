@@ -59,6 +59,11 @@ delete-db:
 		echo "Database $(DB_FILE) does not exist."; \
 	fi
 
+# Delete and recreate the database
+dev-reset: delete-db create-db
+	@echo "Database reset complete"
+
+
 # Run the chain-api from the blockchain workspace with RPC_URL set.
 run-chain-api:
 	@if [ -z "$(RPC_URL)" ]; then \
