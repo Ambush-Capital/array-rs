@@ -77,9 +77,6 @@ delete-db: ## Delete the existing SQLite database
 		echo "! Database $(DB_FILE) does not exist."; \
 	fi
 
-dev-reset: delete-db create-db ## Reset database to a clean state
-	@echo "✓ Database has been reset to initial state"
-
 ##@ Services
 
 run-chain-api: ## Start the blockchain API service (requires RPC_URL in .env)
@@ -123,3 +120,17 @@ dev-build: ## Build all project components without running them
 	@echo "Step 3/3: Building API component..."
 	cd $(API_DIR) && cargo build
 	@echo "✓ All components built successfully!"
+
+dev-reset: delete-db create-db ## Reset database to a clean state
+	@echo "✓ Database has been reset to initial state"
+
+dev-kill: ## Kill all running project processes
+	@echo "Killing all project-related processes..."
+	@pids=$$(pgrep -f "chain-api\|worker\|api"); \
+	if [ -n "$$pids" ]; then \
+		echo "Found processes: $$pids"; \
+		echo $$pids | xargs kill -9; \
+		echo "✓ All processes terminated"; \
+	else \
+		echo "No running processes found"; \
+	fi
