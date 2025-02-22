@@ -19,7 +19,7 @@ API_DIR = api
 -include .env
 
 # Declare all phony targets (targets that don't represent files)
-.PHONY: help create-db delete-db run-chain-api run-worker dev-reset dev dev-build install-deps
+.PHONY: help create-db delete-db run-chain-api run-worker dev-reset dev dev-build install-deps dev-test
 
 # Default target when running just 'make'
 .DEFAULT_GOAL := help
@@ -120,6 +120,16 @@ dev-build: ## Build all project components without running them
 	@echo "Step 3/3: Building API component..."
 	cd $(API_DIR) && cargo build
 	@echo "✓ All components built successfully!"
+
+dev-test: ## Run tests for all project components
+	@echo "Running tests for all components..."
+	@echo "Step 1/3: Testing blockchain component..."
+	cd $(BLOCKCHAIN_DIR) && cargo test
+	@echo "Step 2/3: Testing worker component..."
+	cd $(WORKER_DIR) && cargo test
+	@echo "Step 3/3: Testing API component..."
+	cd $(API_DIR) && cargo test
+	@echo "✓ All tests completed!"
 
 dev-reset: delete-db create-db ## Reset database to a clean state
 	@echo "✓ Database has been reset to initial state"

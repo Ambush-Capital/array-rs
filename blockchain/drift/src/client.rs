@@ -1,8 +1,8 @@
 use crate::error::ErrorCode;
 use crate::models::idl::types::{SpotBalanceType, SpotPosition};
-use common::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
 use anchor_lang::AccountDeserialize;
+use common::{ObligationType, UserObligation};
 use log::{debug, info};
 use prettytable::{row, Table};
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
@@ -60,6 +60,8 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
                     .filter(|(_, market)| market.is_active())
             })
             .collect();
+
+        // println!("Loaded Drift spot markets: {:#?}", self.spot_markets);
 
         Ok(())
     }

@@ -1,7 +1,7 @@
 use anchor_client::{Client, Cluster};
 use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
 use common::MintAsset;
-use sol_interface::aggregator::{ArrayError, LendingMarketAggregator};
+use sol_interface::aggregator::client::{ArrayError, LendingMarketAggregator};
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     signature::{read_keypair_file, Keypair},
@@ -40,22 +40,6 @@ impl LendingService {
         Ok(assets)
     }
 }
-
-// async fn get_current_lending_markets() -> (StatusCode, Json<Vec<MintAsset>>) {
-//     let rpc_url = std::env::var("RPC_URL").expect("Missing RPC_URL environment variable");
-//     let payer = read_keypair_file("/Users/aaronhenshaw/.config/solana/id.json")
-//         .expect("Failed to read keypair file");
-//     let client = Client::new_with_options(
-//         Cluster::Custom(rpc_url.clone(), rpc_url),
-//         &payer,
-//         CommitmentConfig::confirmed(),
-//     );
-
-//     let mut aggregator = LendingMarketAggregator::new(&client);
-//     let _ = aggregator.load_markets();
-//     println!("Loaded {} markets", aggregator.assets.len());
-//     (StatusCode::OK, Json(aggregator.assets))
-// }
 
 async fn get_current_lending_markets(
     State(service): State<LendingService>,

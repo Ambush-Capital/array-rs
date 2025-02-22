@@ -20,6 +20,9 @@ pub const BASE_PRECISION_U64: u64 = AMM_RESERVE_PRECISION as u64; //expo = -9;
 pub const BASE_PRECISION_I64: i64 = AMM_RESERVE_PRECISION_I128 as i64; //expo = -9;
 pub const PERP_DECIMALS: u32 = 9;
 
+pub const APY_SCALE_FACTOR: u128 = 1_000_000; // expo = -6
+pub const APY_SCALE_FACTOR_U64: u64 = APY_SCALE_FACTOR as u64;
+
 pub const PRICE_PRECISION: u128 = 1_000_000; //expo = -6;
 pub const PRICE_PRECISION_I128: i128 = PRICE_PRECISION as i128;
 pub const PRICE_PRECISION_U64: u64 = 1_000_000; //expo = -6;

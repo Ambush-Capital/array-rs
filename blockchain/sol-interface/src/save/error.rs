@@ -209,6 +209,11 @@ pub enum LendingError {
     /// Borrow Attribution Limit Not Exceeded
     #[error("Borrow Attribution Limit Not Exceeded")]
     BorrowAttributionLimitNotExceeded,
+
+    // 60
+    /// Invalid protocol specified for rate normalization
+    #[error("Invalid protocol specified for rate normalization")]
+    InvalidProtocol,
 }
 
 impl From<LendingError> for ProgramError {

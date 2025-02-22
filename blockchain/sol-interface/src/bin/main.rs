@@ -1,9 +1,8 @@
 #![allow(clippy::empty_line_after_doc_comments)]
 
 use anchor_client::{Client, Cluster};
+use sol_interface::aggregator::client::LendingMarketAggregator;
 use solana_sdk::{commitment_config::CommitmentConfig, signature::read_keypair_file};
-
-use sol_interface::aggregator::LendingMarketAggregator;
 
 fn main() {
     env_logger::init();

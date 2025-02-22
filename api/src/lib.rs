@@ -14,7 +14,9 @@ fn format_rate(rate: u128) -> String {
 pub struct ApiLendingReserve {
     pub protocol_name: String,
     pub market_name: String,
+    #[serde(serialize_with = "serialize_token_amount")]
     pub total_supply: u128,
+    #[serde(serialize_with = "serialize_token_amount")]
     pub total_borrows: u128,
     #[serde(skip_serializing)]
     pub borrow_rate: String,
@@ -238,6 +240,14 @@ where
         format!("{:.10}", rate_val).trim_end_matches('0').trim_end_matches('.').to_string();
 
     serializer.serialize_str(&formatted)
+}
+
+fn serialize_token_amount<S>(amount: &u128, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let amount_f64 = *amount as f64 / 1_000_000_000_000_000_000_000_000.0;
+    serializer.serialize_str(&amount_f64.to_string())
 }
 
 pub async fn create_router(service: ApiService) -> Router {
