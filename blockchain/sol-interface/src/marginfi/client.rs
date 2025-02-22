@@ -1,8 +1,8 @@
 use std::ops::Deref;
 
-use common::{ObligationType, UserObligation};
 use anchor_client::{Client, Program};
 use anchor_lang::AnchorDeserialize;
+use common::{ObligationType, UserObligation};
 use fixed::types::I80F48;
 use log::{debug, info};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
@@ -108,7 +108,6 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
 
                 obligations.push(UserObligation {
                     symbol: "".to_string(),
-                    market_price_sf: 0,
                     mint: bank.mint.to_string(),
                     mint_decimals: bank.mint_decimals as u32,
                     amount: I80F48::to_num(amount),

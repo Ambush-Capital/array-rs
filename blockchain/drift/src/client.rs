@@ -115,7 +115,7 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
                 ObligationType::Liability
             };
 
-            let (symbol, market_price_sf, mint, mint_decimals, market_name) = self
+            let (symbol, mint, mint_decimals, market_name) = self
                 .spot_markets
                 .iter()
                 .find(|(_, m)| m.market_index == position.market_index)
@@ -123,19 +123,12 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
                     let name = String::from_utf8_lossy(&market.name)
                         .trim_matches(char::from(0))
                         .to_string();
-                    (
-                        name.clone(),
-                        market.historical_oracle_data.last_oracle_price as u64,
-                        market.mint,
-                        market.decimals,
-                        name,
-                    )
+                    (name.clone(), market.mint, market.decimals, name)
                 })
                 .unwrap_or_default();
 
             obligations.push(UserObligation {
                 symbol,
-                market_price_sf,
                 mint: mint.to_string(),
                 mint_decimals,
                 amount: position.scaled_balance,

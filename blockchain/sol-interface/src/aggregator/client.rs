@@ -223,7 +223,6 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
         let mut table = Table::new();
         table.add_row(row!["Protocol", "Market", "Token", "Amount", "Market Value", "Type"]);
 
-        const PRICE_SCALE_FACTOR: f64 = 1_000_000_000_000_000_000_000_000.0;
         for obligation in obligations {
             table.add_row(row![
                 obligation.protocol_name,
@@ -233,7 +232,6 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                     "{:.3}",
                     obligation.amount as f64 / 10_f64.powi(obligation.mint_decimals as i32)
                 ),
-                format!("{:.2}", obligation.market_price_sf as f64 / PRICE_SCALE_FACTOR),
                 match obligation.obligation_type {
                     ObligationType::Asset => "Supply",
                     ObligationType::Liability => "Borrow",

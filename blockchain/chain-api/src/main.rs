@@ -1,6 +1,12 @@
 use anchor_client::{Client, Cluster};
-use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
-use common::MintAsset;
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::Json,
+    routing::get,
+    Router,
+};
+use common::{MintAsset, UserObligation};
 use sol_interface::aggregator::client::{ArrayError, LendingMarketAggregator};
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -39,6 +45,14 @@ impl LendingService {
 
         Ok(assets)
     }
+
+    pub async fn get_user_obligations(
+        &self,
+        pubkey: &str,
+    ) -> Result<Vec<UserObligation>, ArrayError> {
+        let aggregator = self.aggregator.read().await;
+        aggregator.get_user_obligations(pubkey)
+    }
 }
 
 async fn get_current_lending_markets(
@@ -48,6 +62,19 @@ async fn get_current_lending_markets(
         Ok(markets) => (StatusCode::OK, Json(markets)),
         Err(e) => {
             eprintln!("Error fetching assets: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
+        }
+    }
+}
+
+async fn get_user_obligations(
+    State(service): State<LendingService>,
+    Path(pubkey): Path<String>,
+) -> (StatusCode, Json<Vec<UserObligation>>) {
+    match service.get_user_obligations(&pubkey).await {
+        Ok(obligations) => (StatusCode::OK, Json(obligations)),
+        Err(e) => {
+            eprintln!("Error fetching obligations: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
         }
     }
@@ -68,6 +95,7 @@ async fn main() {
         .route("/", get(root))
         // `POST /users` goes to `create_user`
         .route("/current_lending_markets", get(get_current_lending_markets))
+        .route("/obligations/{pubkey}", get(get_user_obligations))
         .with_state(service);
 
     // run our app with hyper, listening globally on port 3000

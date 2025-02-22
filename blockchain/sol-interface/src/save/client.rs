@@ -165,7 +165,6 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
 
                 user_obligations.push(UserObligation {
                     symbol: reserve.liquidity.mint_pubkey.to_string(),
-                    market_price_sf: deposit.market_value.try_round_u64().unwrap_or(0),
                     mint: reserve.liquidity.mint_pubkey.to_string(),
                     mint_decimals: reserve.liquidity.mint_decimals as u32,
                     amount,
@@ -188,7 +187,6 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
 
                 user_obligations.push(UserObligation {
                     symbol: reserve.liquidity.mint_pubkey.to_string(),
-                    market_price_sf: borrow.market_value.try_round_u64().unwrap_or(0),
                     mint: reserve.liquidity.mint_pubkey.to_string(),
                     mint_decimals: reserve.liquidity.mint_decimals as u32,
                     amount: borrow.borrowed_amount_wads.try_round_u64().unwrap_or(0),

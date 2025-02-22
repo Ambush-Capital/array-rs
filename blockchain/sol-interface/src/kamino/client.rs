@@ -203,7 +203,6 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
                 {
                     user_obligations.push(UserObligation {
                         symbol: reserve.token_symbol().to_string(),
-                        market_price_sf: reserve.liquidity.market_price_sf as u64,
                         mint: reserve.liquidity.mint_pubkey.to_string(),
                         mint_decimals: reserve.liquidity.mint_decimals as u32,
                         amount: deposit.deposited_amount,
@@ -221,7 +220,6 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
                 {
                     user_obligations.push(UserObligation {
                         symbol: reserve.token_symbol().to_string(),
-                        market_price_sf: reserve.liquidity.market_price_sf as u64,
                         mint: reserve.liquidity.mint_pubkey.to_string(),
                         mint_decimals: reserve.liquidity.mint_decimals as u32,
                         amount: borrow.borrowed_amount_sf as u64,
