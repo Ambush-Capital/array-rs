@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+pub mod lending;
+pub use lending::*;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LendingReserve {
     pub protocol_name: String,

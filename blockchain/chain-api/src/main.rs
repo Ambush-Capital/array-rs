@@ -87,6 +87,8 @@ async fn root() -> &'static str {
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+
     let service = LendingService::new();
 
     // build our application with a route

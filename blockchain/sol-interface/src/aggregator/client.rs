@@ -11,6 +11,7 @@ use crate::{
 use anchor_client::Client;
 use common::{LendingReserve, MintAsset, ObligationType, UserObligation};
 use drift::{client::DriftClient, error::ErrorCode};
+use log::info;
 use solana_program::program_error::ProgramError;
 use solana_sdk::{pubkey::Pubkey, signature::Signer};
 
@@ -193,23 +194,25 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
 
     pub fn get_user_obligations(&self, wallet_pubkey: &str) -> ArrayResult<Vec<UserObligation>> {
         let mut obligations = Vec::new();
-
-        // Get Save obligations
+        info!("Fetching Save obligations for {}", wallet_pubkey);
         if let Ok(save_obligations) = self.save_client.get_user_obligations(wallet_pubkey) {
             obligations.extend(save_obligations);
         }
 
         // Get Marginfi obligations
+        info!("Fetching Marginfi obligations for {}", wallet_pubkey);
         if let Ok(marginfi_obligations) = self.marginfi_client.get_user_obligations(wallet_pubkey) {
             obligations.extend(marginfi_obligations);
         }
 
         // Get Kamino obligations
+        info!("Fetching Kamino obligations for {}", wallet_pubkey);
         if let Ok(kamino_obligations) = self.kamino_client.get_user_obligations(wallet_pubkey) {
             obligations.extend(kamino_obligations);
         }
 
         // Get Drift obligations
+        info!("Fetching Drift obligations for {}", wallet_pubkey);
         if let Ok(drift_obligations) = self.drift_client.get_user_obligations(wallet_pubkey) {
             obligations.extend(drift_obligations);
         }
@@ -376,6 +379,12 @@ impl std::fmt::Display for ArrayError {
             ArrayError::Drift(e) => write!(f, "Drift error: {:?}", e),
             ArrayError::Other(e) => write!(f, "Other error: {}", e),
         }
+    }
+}
+
+impl From<common::LendingError> for ArrayError {
+    fn from(err: common::LendingError) -> Self {
+        ArrayError::Other(Box::new(err))
     }
 }
 

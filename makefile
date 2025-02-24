@@ -89,7 +89,7 @@ run-chain-api: ## Start the blockchain API service (requires RPC_URL in .env)
 		exit 1; \
 	fi
 	@echo "Starting blockchain API service..."
-	cd $(BLOCKCHAIN_DIR) && RPC_URL=$(RPC_URL) KEYPAIR_PATH=$(KEYPAIR_PATH) cargo run -p chain-api
+	cd $(BLOCKCHAIN_DIR) && RUST_LOG=info RPC_URL=$(RPC_URL) KEYPAIR_PATH=$(KEYPAIR_PATH) cargo run -p chain-api
 
 run-worker: ## Start the worker service that processes blockchain data
 	@echo "Starting worker service..."
@@ -104,7 +104,7 @@ run-api: ## Start the API service that serves processed data
 dev: create-db ## Launch all services (chain-api, worker, and API) in tmux sessions
 	@echo "Launching development environment in tmux..."
 	@echo "Starting new tmux session 'array-rs' with all services..."
-	tmux new-session -d -s array-rs "make run-chain-api"
+	tmux new-session -d -s array-rs "RUST_LOG=info make run-chain-api"
 	tmux split-window -h -t array-rs "make run-worker"
 	tmux split-window -v -t array-rs "make run-api"
 	tmux select-layout -t array-rs tiled

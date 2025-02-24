@@ -2,9 +2,12 @@ use std::ops::Deref;
 
 use anchor_client::{Client, Program};
 use anchor_lang::AnchorDeserialize;
-use common::{ObligationType, UserObligation};
+use common::{
+    lending::{LendingClient, LendingError},
+    ObligationType, UserObligation,
+};
 use fixed::types::I80F48;
-use log::{debug, info};
+use log::debug;
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_sdk::{pubkey::Pubkey, signature::Signer};
 use std::str::FromStr;
@@ -31,7 +34,7 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
             "4qp6Fx6tnZkY5Wropq9wUYgtFxXKwE6viZxFHg3rdAG8".parse().unwrap(), //main market
         ];
 
-        let program = client.program(marginfi_program_id).expect("Failed to load Kamino program");
+        let program = client.program(marginfi_program_id).expect("Failed to load Marginfi program");
 
         Self {
             program,
@@ -42,14 +45,11 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
         }
     }
 
-    pub fn load_banks_for_group(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let filters = vec![
-            // RpcFilterType::DataSize(size_of::<Bank>() as u64 + 8), // Add 8 for anchor discriminator
-            RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-                8 + size_of::<Pubkey>() + size_of::<u8>(),
-                self.group_pubkeys[0].to_bytes().to_vec(), //also possible cause there is just one group for now
-            )),
-        ];
+    pub fn load_banks_for_group(&mut self) -> Result<(), LendingError> {
+        let filters = vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+            8 + size_of::<Pubkey>() + size_of::<u8>(),
+            self.group_pubkeys[0].to_bytes().to_vec(),
+        ))];
 
         let accounts = self
             .program
@@ -65,7 +65,7 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
                     ..Default::default()
                 },
             )
-            .unwrap();
+            .map_err(|e| LendingError::RpcError(Box::new(e)))?;
 
         self.banks = accounts
             .into_iter()
@@ -77,19 +77,22 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
         Ok(())
     }
 
-    pub fn load_marginfi_group(
-        &mut self,
-        group_pubkey: &Pubkey,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let group_account = self.program.rpc().get_account(group_pubkey).unwrap();
-        self.group = MarginfiGroup::try_from_slice(&group_account.data[8..]).unwrap();
+    pub fn load_marginfi_group(&mut self, group_pubkey: &Pubkey) -> Result<(), LendingError> {
+        let group_account = self
+            .program
+            .rpc()
+            .get_account(group_pubkey)
+            .map_err(|e| LendingError::RpcError(Box::new(e)))?;
+
+        self.group = MarginfiGroup::try_from_slice(&group_account.data[8..])
+            .map_err(|e| LendingError::DeserializationError(e.to_string()))?;
         Ok(())
     }
 
     pub fn get_user_obligations(
         &self,
         wallet_pubkey: &str,
-    ) -> Result<Vec<UserObligation>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<UserObligation>, LendingError> {
         let mut obligations = Vec::new();
         let marginfi_accounts = self.get_obligations(wallet_pubkey)?;
 
@@ -111,7 +114,7 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
                     mint: bank.mint.to_string(),
                     mint_decimals: bank.mint_decimals as u32,
                     amount: I80F48::to_num(amount),
-                    protocol_name: "Marginfi".to_string(),
+                    protocol_name: self.protocol_name().to_string(),
                     market_name: "General".to_string(),
                     obligation_type: match side {
                         BalanceSide::Assets => ObligationType::Asset,
@@ -124,13 +127,10 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
         Ok(obligations)
     }
 
-    /// Get the obligations for a given owner
-    fn get_obligations(
-        &self,
-        owner_pubkey: &str,
-    ) -> Result<Vec<(Balance, Bank)>, Box<dyn std::error::Error>> {
+    fn get_obligations(&self, owner_pubkey: &str) -> Result<Vec<(Balance, Bank)>, LendingError> {
         let mut result = Vec::new();
-        let owner = Pubkey::from_str(owner_pubkey)?;
+        let owner = Pubkey::from_str(owner_pubkey)
+            .map_err(|_| LendingError::InvalidAddress(owner_pubkey.to_string()))?;
 
         let filters = vec![
             RpcFilterType::DataSize(2304 + 8), // Size of MarginfiAccount
@@ -140,28 +140,32 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
             )),
         ];
 
-        let accounts = self.program.rpc().get_program_accounts_with_config(
-            &self.marginfi_program_id,
-            solana_client::rpc_config::RpcProgramAccountsConfig {
-                filters: Some(filters),
-                account_config: solana_client::rpc_config::RpcAccountInfoConfig {
-                    encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
+        let accounts = self
+            .program
+            .rpc()
+            .get_program_accounts_with_config(
+                &self.marginfi_program_id,
+                solana_client::rpc_config::RpcProgramAccountsConfig {
+                    filters: Some(filters),
+                    account_config: solana_client::rpc_config::RpcAccountInfoConfig {
+                        encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
-                ..Default::default()
-            },
-        )?;
+            )
+            .map_err(|e| LendingError::RpcError(Box::new(e)))?;
 
         if accounts.is_empty() {
             debug!("No marginfi accounts found for {}", owner_pubkey);
             return Ok(result);
         }
 
-        info!("\n{} Marginfi Accounts found for {}:", accounts.len(), owner_pubkey);
         for (_, account) in accounts {
-            let marginfi_account = MarginfiAccount::try_from_slice(&account.data[8..])?;
+            let marginfi_account = MarginfiAccount::try_from_slice(&account.data[8..])
+                .map_err(|e| LendingError::DeserializationError(e.to_string()))?;
 
-            // Print active balances
+            // Process active balances
             for balance in marginfi_account.lending_account.get_active_balances_iter() {
                 if !balance.is_empty(BalanceSide::Assets)
                     || !balance.is_empty(BalanceSide::Liabilities)
@@ -177,5 +181,27 @@ impl<C: Clone + Deref<Target = impl Signer>> MarginfiClient<C> {
         }
 
         Ok(result)
+    }
+}
+
+impl<C: Clone + Deref<Target = impl Signer>> LendingClient<Pubkey> for MarginfiClient<C> {
+    fn load_markets(&mut self) -> Result<(), LendingError> {
+        self.load_banks_for_group()?;
+        Ok(())
+    }
+
+    fn get_user_obligations(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<UserObligation>, LendingError> {
+        self.get_user_obligations(wallet_address)
+    }
+
+    fn program_id(&self) -> Pubkey {
+        self.marginfi_program_id
+    }
+
+    fn protocol_name(&self) -> &'static str {
+        "Marginfi"
     }
 }
