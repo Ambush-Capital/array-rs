@@ -1,7 +1,6 @@
 use crate::common::rpc_utils::{
     format_pubkey_for_error, with_pooled_client, LendingErrorConverter,
 };
-use anchor_client::{Client, Program};
 use borsh::BorshDeserialize;
 use common::{
     lending::{LendingClient, LendingError},
@@ -9,8 +8,8 @@ use common::{
 };
 use common_rpc::SolanaRpcBuilder;
 use log::info;
-use solana_sdk::{account::Account, pubkey::Pubkey, signer::Signer};
-use std::{collections::HashMap, ops::Deref, str::FromStr};
+use solana_sdk::{account::Account, pubkey::Pubkey};
+use std::{collections::HashMap, str::FromStr};
 
 use crate::kamino::{
     models::{lending_market::LendingMarket, reserve::Reserve},
@@ -28,17 +27,29 @@ type MarketNameMap = HashMap<String, &'static str>;
 const KAMINO_RESERVE_DISCRIMINATOR: [u8; 8] = [43, 242, 204, 202, 26, 247, 59, 127];
 const KAMINO_OBLIGATION_DISCRIMINATOR: [u8; 8] = [168, 206, 141, 106, 88, 76, 172, 167];
 
-pub struct KaminoClient<C> {
-    program: Program<C>,
-    kamino_program_id: Pubkey,
+pub struct KaminoClient {
+    program_id: Pubkey,
+    rpc_url: String,
     market_pubkeys: Vec<String>,
     pub markets: Vec<KaminoMarkets>,
     pub market_names: MarketNameMap,
 }
 
-impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
-    pub fn new(client: &Client<C>) -> Self {
-        let kamino_program_id = Pubkey::from_str("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD")
+impl Clone for KaminoClient {
+    fn clone(&self) -> Self {
+        Self {
+            program_id: self.program_id,
+            rpc_url: self.rpc_url.clone(),
+            market_pubkeys: self.market_pubkeys.clone(),
+            markets: self.markets.clone(),
+            market_names: self.market_names.clone(),
+        }
+    }
+}
+
+impl KaminoClient {
+    pub fn new(rpc_url: &str) -> Self {
+        let program_id = Pubkey::from_str("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD")
             .expect("Invalid Kamino Lending Program ID");
 
         let market_names: MarketNameMap = [
@@ -53,18 +64,22 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
 
         let market_pubkeys: Vec<String> = market_names.keys().cloned().collect();
 
-        let program = client.program(kamino_program_id).expect("Failed to load Kamino program");
-
-        Self { program, kamino_program_id, market_pubkeys, markets: Vec::new(), market_names }
+        Self {
+            program_id,
+            rpc_url: rpc_url.to_string(),
+            market_pubkeys,
+            markets: Vec::new(),
+            market_names,
+        }
     }
 
-    /// Get the RPC URL from the program
-    fn get_rpc_url(&self) -> String {
-        self.program.rpc().url().to_string()
+    /// Updates the client's state with the fetched market data
+    pub fn set_market_data(&mut self, markets: Vec<KaminoMarkets>) {
+        self.markets = markets;
     }
 
-    pub fn load_markets(&mut self) -> Result<(), LendingError> {
-        self.markets = self
+    pub fn fetch_kamino_markets_impl(&self) -> Result<Vec<KaminoMarkets>, LendingError> {
+        let markets = self
             .market_pubkeys
             .iter()
             .filter_map(|pubkey_str| {
@@ -73,12 +88,9 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
                     Err(_) => return None,
                 };
 
-                // Get the RPC URL
-                let rpc_url = self.get_rpc_url();
-
                 // Get the lending market account
-                let account_data = match with_pooled_client(&rpc_url, |client| {
-                    SolanaRpcBuilder::new(client, self.kamino_program_id)
+                let account_data = match with_pooled_client(&self.rpc_url, |client| {
+                    SolanaRpcBuilder::new(client, self.program_id)
                         .get_account_with_conversion::<LendingError, LendingErrorConverter>(&pubkey)
                 }) {
                     Ok(data) => data,
@@ -109,6 +121,11 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
             })
             .collect();
 
+        Ok(markets)
+    }
+
+    pub fn load_markets(&mut self) -> Result<(), LendingError> {
+        self.markets = self.fetch_kamino_markets_impl()?;
         Ok(())
     }
 
@@ -127,12 +144,9 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
         &self,
         market_address: &Pubkey,
     ) -> Result<Vec<(Pubkey, Account)>, LendingError> {
-        // Get the RPC URL
-        let rpc_url = self.get_rpc_url();
-
         // Use the RPC builder with optimized filters
-        with_pooled_client(&rpc_url, |client| {
-            SolanaRpcBuilder::new(client, self.kamino_program_id)
+        with_pooled_client(&self.rpc_url, |client| {
+            SolanaRpcBuilder::new(client, self.program_id)
                 .with_data_size(RESERVE_SIZE as u64 + 8)
                 .with_memcmp(0, KAMINO_RESERVE_DISCRIMINATOR.to_vec())
                 .with_memcmp_base58(32, market_address.to_string())
@@ -145,11 +159,15 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
         &self,
         owner_pubkey: &str,
     ) -> Result<Vec<UserObligation>, LendingError> {
-        let obligations = self.get_obligations(owner_pubkey)?;
+        let obligations = self.fetch_raw_obligations(owner_pubkey)?;
         info!("Found {} Kamino obligations", obligations.len());
         let mut user_obligations = Vec::new();
 
+        // Cache protocol name to avoid repeated allocations
+        let protocol_name = self.protocol_name().to_string();
+
         for (_, obligation) in obligations {
+            // Get market name once per obligation
             let market_name = self
                 .market_names
                 .get(&obligation.lending_market.to_string())
@@ -160,20 +178,19 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
             for deposit in obligation.deposits {
                 let deposit_reserve_pubkey = Pubkey::from(deposit.deposit_reserve.to_bytes());
                 if let Some(reserve) = self.get_reserve_by_pubkey(&deposit_reserve_pubkey)? {
+                    // Get symbol and mint once
+                    let symbol = reserve.token_symbol().to_string();
+                    let mint = reserve.liquidity.mint_pubkey.to_string();
+
                     user_obligations.push(UserObligation {
-                        symbol: reserve.token_symbol().to_string(),
-                        mint: reserve.liquidity.mint_pubkey.to_string(),
+                        symbol,
+                        mint,
                         mint_decimals: reserve.liquidity.mint_decimals as u32,
                         amount: deposit.deposited_amount,
-                        protocol_name: self.protocol_name().to_string(),
+                        protocol_name: protocol_name.clone(),
                         market_name: market_name.clone(),
                         obligation_type: ObligationType::Asset,
                     });
-                } else {
-                    debug!(
-                        "Reserve not found for deposit: {}",
-                        format_pubkey_for_error(&deposit_reserve_pubkey)
-                    );
                 }
             }
 
@@ -181,20 +198,19 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
             for borrow in obligation.borrows {
                 let borrow_reserve_pubkey = Pubkey::from(borrow.borrow_reserve.to_bytes());
                 if let Some(reserve) = self.get_reserve_by_pubkey(&borrow_reserve_pubkey)? {
+                    // Get symbol and mint once
+                    let symbol = reserve.token_symbol().to_string();
+                    let mint = reserve.liquidity.mint_pubkey.to_string();
+
                     user_obligations.push(UserObligation {
-                        symbol: reserve.token_symbol().to_string(),
-                        mint: reserve.liquidity.mint_pubkey.to_string(),
+                        symbol,
+                        mint,
                         mint_decimals: reserve.liquidity.mint_decimals as u32,
                         amount: borrow.borrowed_amount_sf as u64,
-                        protocol_name: self.protocol_name().to_string(),
+                        protocol_name: protocol_name.clone(),
                         market_name: market_name.clone(),
                         obligation_type: ObligationType::Liability,
                     });
-                } else {
-                    debug!(
-                        "Reserve not found for borrow: {}",
-                        format_pubkey_for_error(&borrow_reserve_pubkey)
-                    );
                 }
             }
         }
@@ -202,7 +218,7 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
         Ok(user_obligations)
     }
 
-    fn get_obligations(
+    fn fetch_raw_obligations(
         &self,
         owner_pubkey: &str,
     ) -> Result<Vec<(Pubkey, Obligation)>, LendingError> {
@@ -210,12 +226,9 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
             LendingError::InvalidAddress(format!("Invalid owner pubkey {}: {}", owner_pubkey, e))
         })?;
 
-        // Get the RPC URL
-        let rpc_url = self.get_rpc_url();
-
         // Use the RPC builder with optimized filters
-        let accounts = with_pooled_client(&rpc_url, |client| {
-            SolanaRpcBuilder::new(client, self.kamino_program_id)
+        let accounts = with_pooled_client(&self.rpc_url, |client| {
+            SolanaRpcBuilder::new(client, self.program_id)
                 .with_memcmp(0, KAMINO_OBLIGATION_DISCRIMINATOR.to_vec())
                 .with_data_size(OBLIGATION_SIZE as u64 + 8)
                 .with_memcmp_base58(8 + 8 + 16 + 32, owner.to_string())
@@ -249,9 +262,18 @@ impl<C: Clone + Deref<Target = impl Signer>> KaminoClient<C> {
     }
 }
 
-impl<C: Clone + Deref<Target = impl Signer>> LendingClient<Pubkey> for KaminoClient<C> {
+impl LendingClient<Pubkey, Vec<KaminoMarkets>> for KaminoClient {
     fn load_markets(&mut self) -> Result<(), LendingError> {
-        self.load_markets()
+        self.markets = self.fetch_kamino_markets_impl()?;
+        Ok(())
+    }
+
+    fn fetch_markets(&self) -> Result<Vec<KaminoMarkets>, LendingError> {
+        self.fetch_kamino_markets_impl()
+    }
+
+    fn set_market_data(&mut self, data: Vec<KaminoMarkets>) {
+        self.markets = data;
     }
 
     fn get_user_obligations(
@@ -262,7 +284,7 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingClient<Pubkey> for KaminoCli
     }
 
     fn program_id(&self) -> Pubkey {
-        self.kamino_program_id
+        self.program_id
     }
 
     fn protocol_name(&self) -> &'static str {

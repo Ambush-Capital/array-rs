@@ -27,7 +27,7 @@ use type_layout::TypeLayout;
 
 assert_struct_size!(MarginfiGroup, 1056);
 #[derive(
-    Debug, PartialEq, Eq, Zeroable, TypeLayout, Default, AnchorDeserialize, AnchorSerialize,
+    Debug, PartialEq, Eq, Zeroable, TypeLayout, Default, AnchorDeserialize, AnchorSerialize, Clone,
 )]
 pub struct MarginfiGroup {
     pub admin: Pubkey,
@@ -81,9 +81,10 @@ pub struct GroupConfig {
     pub admin: Option<Pubkey>,
 }
 
+assert_struct_size!(InterestRateConfigCompact, 128);
 #[repr(C)]
 #[derive(
-    Default, Debug, AnchorDeserialize, AnchorSerialize, PartialEq, Eq, Zeroable, TypeLayout,
+    Default, Debug, PartialEq, Eq, Zeroable, AnchorDeserialize, AnchorSerialize, TypeLayout, Clone,
 )]
 pub struct InterestRateConfigCompact {
     // Curve Params
@@ -92,9 +93,13 @@ pub struct InterestRateConfigCompact {
     pub max_interest_rate: WrappedI80F48,
 
     // Fees
+    /// Goes to insurance, funds `collected_insurance_fees_outstanding`
     pub insurance_fee_fixed_apr: WrappedI80F48,
+    /// Goes to insurance, funds `collected_insurance_fees_outstanding`
     pub insurance_ir_fee: WrappedI80F48,
+    /// Earned by the group, goes to `collected_group_fees_outstanding`
     pub protocol_fixed_fee_apr: WrappedI80F48,
+    /// Earned by the group, goes to `collected_group_fees_outstanding`
     pub protocol_ir_fee: WrappedI80F48,
     pub protocol_origination_fee: WrappedI80F48,
 }
@@ -134,7 +139,7 @@ impl From<InterestRateConfig> for InterestRateConfigCompact {
 assert_struct_size!(InterestRateConfig, 240);
 #[repr(C)]
 #[derive(
-    Default, Debug, PartialEq, Eq, Zeroable, AnchorDeserialize, AnchorSerialize, TypeLayout,
+    Default, Debug, PartialEq, Eq, Zeroable, AnchorDeserialize, AnchorSerialize, TypeLayout, Clone,
 )]
 pub struct InterestRateConfig {
     // Curve Params
@@ -378,7 +383,7 @@ assert_struct_size!(Bank, 1856);
 assert_struct_align!(Bank, 8);
 #[repr(C)]
 #[derive(
-    Default, Debug, PartialEq, Eq, Zeroable, TypeLayout, AnchorDeserialize, AnchorSerialize,
+    Default, Debug, PartialEq, Eq, Zeroable, TypeLayout, AnchorDeserialize, AnchorSerialize, Clone,
 )]
 pub struct Bank {
     pub mint: Pubkey,
@@ -696,7 +701,7 @@ unsafe impl Zeroable for RiskTier {}
 unsafe impl Pod for RiskTier {}
 
 #[repr(C)]
-#[derive(AnchorDeserialize, AnchorSerialize, Debug, PartialEq, Eq, Zeroable, TypeLayout)]
+#[derive(AnchorDeserialize, AnchorSerialize, Debug, PartialEq, Eq, Zeroable, TypeLayout, Clone)]
 /// TODO: Convert weights to (u64, u64) to avoid precision loss (maybe?)
 pub struct BankConfigCompact {
     pub asset_weight_init: WrappedI80F48,
@@ -799,7 +804,7 @@ impl From<BankConfig> for BankConfigCompact {
 assert_struct_size!(BankConfig, 544);
 assert_struct_align!(BankConfig, 8);
 #[repr(C)]
-#[derive(Debug, PartialEq, Eq, Zeroable, AnchorDeserialize, AnchorSerialize, TypeLayout)]
+#[derive(Debug, PartialEq, Eq, Zeroable, AnchorDeserialize, AnchorSerialize, TypeLayout, Clone)]
 /// TODO: Convert weights to (u64, u64) to avoid precision loss (maybe?)
 pub struct BankConfig {
     pub asset_weight_init: WrappedI80F48,

@@ -22,14 +22,29 @@ pub enum LendingError {
     ProtocolError(String),
 }
 
-pub trait LendingClient<Address> {
-    fn load_markets(&mut self) -> Result<(), LendingError>;
+pub trait LendingClient<Address, MarketData> {
+    /// Loads markets into the client's internal state
+    fn load_markets(&mut self) -> Result<(), LendingError> {
+        // Default implementation that can be overridden
+        Ok(())
+    }
+
+    /// Fetches markets without modifying the client's state
+    /// Returns the market data that can be used to update the client's state
+    fn fetch_markets(&self) -> Result<MarketData, LendingError>;
+
+    /// Updates the client's state with the fetched market data
+    fn set_market_data(&mut self, data: MarketData);
+
     fn get_user_obligations(
         &self,
         wallet_address: &str,
     ) -> Result<Vec<UserObligation>, LendingError>;
+
     fn program_id(&self) -> Address;
+
     fn protocol_name(&self) -> &'static str;
+
     fn print_markets(&self) {
         // Default empty implementation
     }

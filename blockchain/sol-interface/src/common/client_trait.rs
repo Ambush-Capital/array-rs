@@ -1,5 +1,4 @@
 use common::UserObligation;
-use solana_sdk::pubkey::Pubkey;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -23,11 +22,22 @@ pub enum ClientError {
     ProtocolError(String),
 }
 
-pub trait LendingClient {
+pub trait LendingClient<T> {
+    /// The type of market data returned by fetch_markets
+    type MarketData;
+
     fn load_markets(&mut self) -> Result<(), ClientError>;
+
+    /// Fetches markets without modifying the client's state
+    /// Returns the market data that can be used to update the client's state
+    fn fetch_markets(&self) -> Result<Self::MarketData, ClientError>;
+
+    /// Updates the client's state with the fetched market data
+    fn set_market_data(&mut self, data: Self::MarketData);
+
     fn get_user_obligations(&self, wallet_pubkey: &str)
         -> Result<Vec<UserObligation>, ClientError>;
-    fn program_id(&self) -> Pubkey;
+    fn program_id(&self) -> T;
     fn protocol_name(&self) -> &'static str;
     fn print_markets(&self) {
         // Default empty implementation

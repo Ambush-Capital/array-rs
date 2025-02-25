@@ -1,146 +1,331 @@
-use std::{ops::Deref, str::FromStr};
+use std::{collections::HashMap, str::FromStr};
 
 use crate::{
     aggregator::from::{
         DriftReserveWrapper, KaminoReserveWrapper, MarginfiReserveWrapper, SaveReserveWrapper,
     },
-    kamino::{client::KaminoClient, utils::errors::LendingError as KaminoLendingError},
-    marginfi::client::MarginfiClient,
-    save::{client::SaveClient, error::LendingError},
+    common::client_trait::ClientError,
+    kamino::client::KaminoClient,
+    marginfi::{client::MarginfiClient, models::group::MarginfiGroup},
+    save::client::SaveClient,
 };
-use anchor_client::Client;
-use common::{LendingReserve, MintAsset, ObligationType, UserObligation};
-use drift::{client::DriftClient, error::ErrorCode};
-use log::info;
-use solana_program::program_error::ProgramError;
-use solana_sdk::{pubkey::Pubkey, signature::Signer};
+use common::{lending::LendingClient, LendingReserve, MintAsset, ObligationType, UserObligation};
+use drift::client::DriftClient;
+use log::{error, info, warn};
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::pubkey::Pubkey;
 
-pub struct LendingMarketAggregator<C> {
-    pub assets: Vec<MintAsset>,
+pub struct LendingMarketAggregator {
+    pub assets: HashMap<String, MintAsset>, // Maps mint string to MintAsset directly
     // metadata_cache: HashMap<Pubkey, (String, String)>,
-    save_client: SaveClient<C>,
-    marginfi_client: MarginfiClient<C>,
-    kamino_client: KaminoClient<C>,
-    drift_client: DriftClient<C>,
+    save_client: SaveClient,
+    marginfi_client: MarginfiClient,
+    kamino_client: KaminoClient,
+    drift_client: DriftClient,
+    rpc_client: RpcClient,
 }
 
-impl<C: Clone + Deref<Target = impl Signer>> Default for LendingMarketAggregator<C> {
+impl Default for LendingMarketAggregator {
     fn default() -> Self {
-        unimplemented!("Default implementation not available - use new() instead")
+        Self::new("https://api.mainnet-beta.solana.com")
     }
 }
 
-impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
-    pub fn new(client: &Client<C>) -> Self {
-        Self {
-            assets: Self::get_valid_assets(),
-            // metadata_cache: HashMap::new(),
-            save_client: SaveClient::new(client),
-            marginfi_client: MarginfiClient::new(client),
-            kamino_client: KaminoClient::new(client),
-            drift_client: DriftClient::new(client),
-        }
+impl LendingMarketAggregator {
+    pub fn new(rpc_url: &str) -> Self {
+        // Create clients for each protocol
+        let save_client = SaveClient::new(rpc_url);
+        let marginfi_client = MarginfiClient::new(rpc_url);
+        let kamino_client = KaminoClient::new(rpc_url);
+        let drift_client = DriftClient::new(rpc_url);
+        let rpc_client = RpcClient::new(rpc_url.to_string());
+
+        // Create the aggregator with initial empty assets
+        let mut aggregator = Self {
+            assets: HashMap::new(),
+            save_client,
+            marginfi_client,
+            kamino_client,
+            drift_client,
+            rpc_client,
+        };
+
+        // Initialize supported tokens
+        aggregator.init_supported_tokens();
+
+        aggregator
     }
 
-    fn get_valid_assets() -> Vec<MintAsset> {
-        vec![
-            MintAsset {
-                name: "USDC".to_string(),
-                symbol: "USD Coin".to_string(),
-                market_price_sf: 0,
-                mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".parse().unwrap(),
-                lending_reserves: vec![],
-            },
-            // MintAsset {
-            //     name: "SOL".to_string(),
-            //     symbol: "Wrapped SOL".to_string(),
-            //     market_price_sf: 0,
-            //     mint: "So11111111111111111111111111111111111111112".parse().unwrap(),
-            //     lending_reserves: vec![],
-            // },
-            // MintAsset {
-            //     name: "USDT".to_string(),
-            //     symbol: "USDT".to_string(),
-            //     market_price_sf: 0,
-            //     mint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB".parse().unwrap(),
-            //     lending_reserves: vec![],
-            // },
-            // MintAsset {
-            //     name: "USDS".to_string(),
-            //     symbol: "USDC".to_string(),
-            //     market_price_sf: 0,
-            //     mint: "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA".parse().unwrap(),
-            //     lending_reserves: vec![],
-            // },
-            // MintAsset {
-            //     name: "mSOL".to_string(),
-            //     symbol: "Marinade staked SOL (mSOL)".to_string(),
-            //     market_price_sf: 0,
-            //     mint: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So".parse().unwrap(),
-            //     lending_reserves: vec![],
-            // },
-            // MintAsset {
-            //     name: "jitoSOL".to_string(),
-            //     symbol: "Jito Staked SOL".to_string(),
-            //     market_price_sf: 0,
-            //     mint: "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn".parse().unwrap(),
-            //     lending_reserves: vec![],
-            // },
-            // MintAsset {
-            //     name: "pyusd".to_string(),
-            //     symbol: "PayPal USD".to_string(),
-            //     market_price_sf: 0,
-            //     mint: "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo".parse().unwrap(),
-            //     lending_reserves: vec![],
-            // },
-        ]
+    // Utility function to extract market name from null-terminated byte array
+    fn extract_market_name(name_bytes: &[u8]) -> String {
+        String::from_utf8_lossy(name_bytes).trim_matches(char::from(0)).to_string()
+    }
+
+    fn get_valid_assets() -> HashMap<String, MintAsset> {
+        let mut assets = HashMap::new();
+
+        // Define common assets with their symbols and mint addresses
+        let tokens = [
+            ("SOL", "So11111111111111111111111111111111111111112"),
+            ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+            ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
+            // Add more tokens as needed
+        ];
+
+        // Create MintAsset objects for each token
+        for (symbol, mint) in tokens {
+            assets.insert(
+                mint.to_string(),
+                MintAsset {
+                    name: symbol.to_string(),
+                    symbol: symbol.to_string(),
+                    market_price_sf: 0,
+                    mint: mint.to_string(),
+                    lending_reserves: Vec::new(),
+                },
+            );
+        }
+
+        assets
+    }
+
+    // Initialize supported tokens
+    fn init_supported_tokens(&mut self) {
+        self.assets = Self::get_valid_assets();
     }
 
     pub fn load_markets(&mut self) -> ArrayResult<()> {
-        // Initialize assets with hardcoded list of supported tokens
-        // This defines the tokens we track across all lending protocols
-        // Each MintAsset represents a token with its metadata and will accumulate lending reserves
-        self.assets = Self::get_valid_assets();
+        // Use parallel execution by default
+        self.load_markets_parallel()
+    }
 
-        // Get current slot from RPC
-        let current_slot = self.save_client.program.rpc().get_slot()?;
+    pub fn load_markets_parallel(&mut self) -> ArrayResult<()> {
+        // Create a runtime for executing the parallel tasks if we're not already in one
+        match tokio::runtime::Runtime::new() {
+            Ok(runtime) => {
+                // We're not in a runtime, so create one and use it
+                runtime.block_on(self.load_markets_async())
+            }
+            Err(_) => {
+                // We might be in a runtime already, fall back to sequential implementation
+                // to avoid the "Cannot start a runtime from within a runtime" error
+                warn!("Failed to create Tokio runtime, falling back to sequential implementation");
+                self.load_markets_sequential()
+            }
+        }
+    }
 
-        println!("Starting loading all lending markets from slot {}...", current_slot);
-        // Load Save/Kamino reserves
-        println!("Loading Save reserves");
-        self.save_client.load_all_reserves()?;
+    pub async fn load_markets_async(&mut self) -> ArrayResult<()> {
+        info!("Loading all lending markets in parallel");
 
-        println!("Loading Kamino reserves");
-        self.kamino_client.load_markets()?;
+        // Initialize supported tokens
+        self.init_supported_tokens();
 
-        println!("Loading Marginfi reserves");
-        self.marginfi_client.load_banks_for_group()?;
+        // Get the current slot sequentially first (not in parallel)
+        let current_slot =
+            self.rpc_client.get_slot().map_err(|e| ClientError::RpcError(Box::new(e)))?;
 
-        println!("Loading Drift reserves");
-        self.drift_client.load_spot_markets()?;
+        // Clone clients for use in separate tasks
+        let save_client = self.save_client.clone();
+        let marginfi_client = self.marginfi_client.clone();
+        let kamino_client = self.kamino_client.clone();
+        let drift_client = self.drift_client.clone();
 
-        println!("Done loading all lending markets.");
+        // Create futures for each protocol using the generic fetch_markets method
+        let save_future = tokio::spawn(async move {
+            info!("Loading Save reserves");
+            match save_client.fetch_markets() {
+                Ok(reserves) => reserves,
+                Err(e) => {
+                    warn!("Failed to load Save reserves: {}", e);
+                    Vec::new()
+                }
+            }
+        });
 
+        // Handle Kamino separately due to different return type
+        let kamino_future = tokio::spawn(async move {
+            info!("Loading Kamino reserves");
+            match kamino_client.fetch_markets() {
+                Ok(markets) => markets,
+                Err(e) => {
+                    warn!("Failed to load Kamino reserves: {}", e);
+                    Vec::new()
+                }
+            }
+        });
+
+        // Now we can use the generic fetch_markets for MarginfiClient too
+        let marginfi_future = tokio::spawn(async move {
+            info!("Loading Marginfi markets");
+            match marginfi_client.fetch_markets() {
+                Ok(data) => data,
+                Err(e) => {
+                    warn!("Failed to load Marginfi markets: {}", e);
+                    (Vec::new(), MarginfiGroup::default())
+                }
+            }
+        });
+
+        let drift_future = tokio::spawn(async move {
+            info!("Loading Drift reserves");
+            match drift_client.fetch_markets() {
+                Ok(markets) => markets,
+                Err(e) => {
+                    warn!("Failed to load Drift reserves: {}", e);
+                    Vec::new()
+                }
+            }
+        });
+
+        // Await futures separately to handle different types
+        let save_reserves = match save_future.await {
+            Ok(reserves) => reserves,
+            Err(e) => {
+                warn!("Failed to join Save task: {}", e);
+                Vec::new()
+            }
+        };
+
+        let kamino_markets = match kamino_future.await {
+            Ok(markets) => markets,
+            Err(e) => {
+                warn!("Failed to join Kamino task: {}", e);
+                Vec::new()
+            }
+        };
+
+        let marginfi_data = match marginfi_future.await {
+            Ok(data) => data,
+            Err(e) => {
+                warn!("Failed to join Marginfi task: {}", e);
+                (Vec::new(), MarginfiGroup::default())
+            }
+        };
+
+        let drift_markets = match drift_future.await {
+            Ok(markets) => markets,
+            Err(e) => {
+                warn!("Failed to join Drift task: {}", e);
+                Vec::new()
+            }
+        };
+
+        // Update client state with fetched data using the generic set_market_data method
+        self.save_client.set_market_data(save_reserves);
+        self.kamino_client.set_market_data(kamino_markets);
+        self.marginfi_client.set_market_data(marginfi_data);
+        self.drift_client.set_market_data(drift_markets);
+
+        info!("Done loading all lending markets.");
+
+        // Process reserves
+        self.process_all_reserves(current_slot);
+
+        Ok(())
+    }
+
+    // New helper method to process all reserves
+    fn process_all_reserves(&mut self, current_slot: u64) {
+        // Process Save reserves
+        self.process_save_reserves(current_slot);
+
+        // Process Marginfi banks
+        self.process_marginfi_banks(current_slot);
+
+        // Process Kamino markets
+        self.process_kamino_markets(current_slot);
+
+        // Process Drift markets
+        self.process_drift_markets(current_slot);
+    }
+
+    pub fn load_markets_sequential(&mut self) -> ArrayResult<()> {
+        info!("Loading all lending markets sequentially");
+
+        // Initialize supported tokens
+        self.init_supported_tokens();
+
+        // Get the current slot using the RPC client directly
+        let current_slot =
+            self.rpc_client.get_slot().map_err(|e| ClientError::RpcError(Box::new(e)))?;
+
+        // Fetch markets for each protocol sequentially using the generic fetch_markets method
+        info!("Loading Save reserves");
+        let save_reserves = match self.save_client.fetch_markets() {
+            Ok(reserves) => reserves,
+            Err(e) => {
+                warn!("Failed to load Save reserves: {}", e);
+                Vec::new()
+            }
+        };
+
+        info!("Loading Kamino reserves");
+        let kamino_markets = match self.kamino_client.fetch_markets() {
+            Ok(markets) => markets,
+            Err(e) => {
+                warn!("Failed to load Kamino reserves: {}", e);
+                Vec::new()
+            }
+        };
+
+        // Now we can use the generic fetch_markets for MarginfiClient too
+        info!("Loading Marginfi markets");
+        let marginfi_data = match self.marginfi_client.fetch_markets() {
+            Ok(data) => data,
+            Err(e) => {
+                warn!("Failed to load Marginfi markets: {}", e);
+                (Vec::new(), MarginfiGroup::default())
+            }
+        };
+
+        info!("Loading Drift reserves");
+        let drift_markets = match self.drift_client.fetch_markets() {
+            Ok(markets) => markets,
+            Err(e) => {
+                warn!("Failed to load Drift reserves: {}", e);
+                Vec::new()
+            }
+        };
+
+        // Update client state with fetched data using the generic set_market_data method
+        self.save_client.set_market_data(save_reserves);
+        self.kamino_client.set_market_data(kamino_markets);
+        self.marginfi_client.set_market_data(marginfi_data);
+        self.drift_client.set_market_data(drift_markets);
+
+        info!("Done loading all lending markets.");
+
+        // Process reserves
+        self.process_all_reserves(current_slot);
+
+        Ok(())
+    }
+
+    // Helper methods to process each protocol's reserves
+    fn process_save_reserves(&mut self, current_slot: u64) {
         for pool in &self.save_client.pools {
             for reserve in &pool.reserves {
-                let mint_pubkey =
-                    Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
-                // Convert reserve to LendingReserve and add to correct asset
-                if let Some(asset) =
-                    self.assets.iter_mut().find(|a| a.mint == mint_pubkey.to_string())
+                if let Ok(mint_pubkey) =
+                    Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string())
                 {
-                    asset.lending_reserves.push(LendingReserve::from(SaveReserveWrapper {
-                        reserve,
-                        market_name: &pool.name,
-                        slot: current_slot,
-                    }));
+                    let mint_str = mint_pubkey.to_string();
+                    if let Some(asset) = self.assets.get_mut(&mint_str) {
+                        asset.lending_reserves.push(LendingReserve::from(SaveReserveWrapper {
+                            reserve,
+                            market_name: &pool.name,
+                            slot: current_slot,
+                        }));
+                    }
                 }
             }
         }
+    }
 
-        // Load Marginfi banks
+    fn process_marginfi_banks(&mut self, current_slot: u64) {
         for (_, bank) in &self.marginfi_client.banks {
-            if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == bank.mint.to_string()) {
+            let mint_str = bank.mint.to_string();
+            if let Some(asset) = self.assets.get_mut(&mint_str) {
                 asset.lending_reserves.push(LendingReserve::from(MarginfiReserveWrapper {
                     bank,
                     group: &self.marginfi_client.group,
@@ -149,38 +334,34 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                 }));
             }
         }
+    }
 
-        // Load Kamino markets
+    fn process_kamino_markets(&mut self, current_slot: u64) {
         for (_, market, reserves) in &self.kamino_client.markets {
-            let market_name = String::from_utf8(
-                market.name.iter().take_while(|&&c| c != 0).copied().collect::<Vec<u8>>(),
-            )
-            .unwrap_or_default();
+            let market_name = Self::extract_market_name(&market.name);
 
             for (_, reserve) in reserves {
-                let mint_pubkey =
-                    Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
-                if let Some(asset) =
-                    self.assets.iter_mut().find(|a| a.mint == mint_pubkey.to_string())
+                if let Ok(mint_pubkey) =
+                    Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string())
                 {
-                    asset.lending_reserves.push(LendingReserve::from(KaminoReserveWrapper {
-                        reserve,
-                        market_name: &market_name,
-                        slot: current_slot,
-                    }));
+                    let mint_str = mint_pubkey.to_string();
+                    if let Some(asset) = self.assets.get_mut(&mint_str) {
+                        asset.lending_reserves.push(LendingReserve::from(KaminoReserveWrapper {
+                            reserve,
+                            market_name: &market_name,
+                            slot: current_slot,
+                        }));
+                    }
                 }
             }
         }
+    }
 
+    fn process_drift_markets(&mut self, current_slot: u64) {
         for (_, market) in &self.drift_client.spot_markets {
-            let mint_pubkey = market.mint;
-            if let Some(asset) = self.assets.iter_mut().find(|a| a.mint == mint_pubkey.to_string())
-            {
-                let market_name = String::from_utf8(
-                    market.name.iter().take_while(|&&c| c != 0).copied().collect::<Vec<u8>>(),
-                )
-                .unwrap_or_default();
-
+            let mint_str = market.mint.to_string();
+            if let Some(asset) = self.assets.get_mut(&mint_str) {
+                let market_name = Self::extract_market_name(&market.name);
                 asset.lending_reserves.push(LendingReserve::from(DriftReserveWrapper {
                     market,
                     market_name: &market_name,
@@ -188,33 +369,186 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                 }));
             }
         }
-
-        Ok(())
     }
 
     pub fn get_user_obligations(&self, wallet_pubkey: &str) -> ArrayResult<Vec<UserObligation>> {
+        // Create a runtime for executing the parallel tasks if we're not already in one
+        match tokio::runtime::Runtime::new() {
+            Ok(runtime) => {
+                // We're not in a runtime, so create one and use it
+                runtime.block_on(self.get_user_obligations_async(wallet_pubkey))
+            }
+            Err(_) => {
+                // We might be in a runtime already, fall back to sequential implementation
+                // to avoid the "Cannot start a runtime from within a runtime" error
+                warn!("Failed to create Tokio runtime, falling back to sequential implementation");
+                self.get_user_obligations_sequential(wallet_pubkey)
+            }
+        }
+    }
+
+    /// Async version of get_user_obligations - use this when already in an async context
+    pub async fn get_user_obligations_async(
+        &self,
+        wallet_pubkey: &str,
+    ) -> ArrayResult<Vec<UserObligation>> {
+        use futures::future;
+        use std::sync::Arc;
+
+        info!("Fetching user obligations for {} in parallel", wallet_pubkey);
+
+        // Clone the clients for use in separate tasks
+        let save_client = self.save_client.clone();
+        let marginfi_client = self.marginfi_client.clone();
+        let kamino_client = self.kamino_client.clone();
+        let drift_client = self.drift_client.clone();
+
+        // Create a shared reference to the wallet pubkey
+        let wallet_pubkey = wallet_pubkey.to_string();
+        let wallet_pubkey = Arc::new(wallet_pubkey);
+
+        // Create futures for each protocol
+        let save_future = {
+            let wallet_pubkey = Arc::clone(&wallet_pubkey);
+            tokio::spawn(async move {
+                info!("Fetching Save obligations for {}", wallet_pubkey);
+                match save_client.get_user_obligations(&wallet_pubkey) {
+                    Ok(obligations) => {
+                        info!("Found {} Save obligations", obligations.len());
+                        obligations
+                    }
+                    Err(e) => {
+                        error!("Error fetching Save obligations: {}", e);
+                        Vec::new()
+                    }
+                }
+            })
+        };
+
+        let marginfi_future = {
+            let wallet_pubkey = Arc::clone(&wallet_pubkey);
+            tokio::spawn(async move {
+                info!("Fetching Marginfi obligations for {}", wallet_pubkey);
+                match marginfi_client.get_user_obligations(&wallet_pubkey) {
+                    Ok(obligations) => {
+                        info!("Found {} Marginfi obligations", obligations.len());
+                        obligations
+                    }
+                    Err(e) => {
+                        error!("Error fetching Marginfi obligations: {}", e);
+                        Vec::new()
+                    }
+                }
+            })
+        };
+
+        let kamino_future = {
+            let wallet_pubkey = Arc::clone(&wallet_pubkey);
+            tokio::spawn(async move {
+                info!("Fetching Kamino obligations for {}", wallet_pubkey);
+                match kamino_client.get_user_obligations(&wallet_pubkey) {
+                    Ok(obligations) => {
+                        info!("Found {} Kamino obligations", obligations.len());
+                        obligations
+                    }
+                    Err(e) => {
+                        error!("Error fetching Kamino obligations: {}", e);
+                        Vec::new()
+                    }
+                }
+            })
+        };
+
+        let drift_future = {
+            let wallet_pubkey = Arc::clone(&wallet_pubkey);
+            tokio::spawn(async move {
+                info!("Fetching Drift obligations for {}", wallet_pubkey);
+                match drift_client.get_user_obligations(&wallet_pubkey) {
+                    Ok(obligations) => {
+                        info!("Found {} Drift obligations", obligations.len());
+                        obligations
+                    }
+                    Err(e) => {
+                        error!("Error fetching Drift obligations: {}", e);
+                        Vec::new()
+                    }
+                }
+            })
+        };
+
+        // Collect results from all tasks
         let mut obligations = Vec::new();
+
+        // Await all futures and collect results
+        let results =
+            future::join4(save_future, marginfi_future, kamino_future, drift_future).await;
+
+        for (protocol, result) in ["Save", "Marginfi", "Kamino", "Drift"]
+            .iter()
+            .zip([results.0, results.1, results.2, results.3])
+        {
+            match result {
+                Ok(protocol_obligations) => obligations.extend(protocol_obligations),
+                Err(e) => error!("Error joining {} task: {}", protocol, e),
+            }
+        }
+
+        Ok(obligations)
+    }
+
+    pub fn get_user_obligations_sequential(
+        &self,
+        wallet_pubkey: &str,
+    ) -> ArrayResult<Vec<UserObligation>> {
+        info!("Fetching user obligations for {} sequentially", wallet_pubkey);
+        let mut obligations = Vec::new();
+
+        // Fetch Save obligations
         info!("Fetching Save obligations for {}", wallet_pubkey);
-        if let Ok(save_obligations) = self.save_client.get_user_obligations(wallet_pubkey) {
-            obligations.extend(save_obligations);
+        match self.save_client.get_user_obligations(wallet_pubkey) {
+            Ok(save_obligations) => {
+                info!("Found {} Save obligations", save_obligations.len());
+                obligations.extend(save_obligations);
+            }
+            Err(e) => {
+                error!("Error fetching Save obligations: {}", e);
+            }
         }
 
-        // Get Marginfi obligations
+        // Fetch Marginfi obligations
         info!("Fetching Marginfi obligations for {}", wallet_pubkey);
-        if let Ok(marginfi_obligations) = self.marginfi_client.get_user_obligations(wallet_pubkey) {
-            obligations.extend(marginfi_obligations);
+        match self.marginfi_client.get_user_obligations(wallet_pubkey) {
+            Ok(marginfi_obligations) => {
+                info!("Found {} Marginfi obligations", marginfi_obligations.len());
+                obligations.extend(marginfi_obligations);
+            }
+            Err(e) => {
+                error!("Error fetching Marginfi obligations: {}", e);
+            }
         }
 
-        // Get Kamino obligations
+        // Fetch Kamino obligations
         info!("Fetching Kamino obligations for {}", wallet_pubkey);
-        if let Ok(kamino_obligations) = self.kamino_client.get_user_obligations(wallet_pubkey) {
-            obligations.extend(kamino_obligations);
+        match self.kamino_client.get_user_obligations(wallet_pubkey) {
+            Ok(kamino_obligations) => {
+                info!("Found {} Kamino obligations", kamino_obligations.len());
+                obligations.extend(kamino_obligations);
+            }
+            Err(e) => {
+                error!("Error fetching Kamino obligations: {}", e);
+            }
         }
 
-        // Get Drift obligations
+        // Fetch Drift obligations
         info!("Fetching Drift obligations for {}", wallet_pubkey);
-        if let Ok(drift_obligations) = self.drift_client.get_user_obligations(wallet_pubkey) {
-            obligations.extend(drift_obligations);
+        match self.drift_client.get_user_obligations(wallet_pubkey) {
+            Ok(drift_obligations) => {
+                info!("Found {} Drift obligations", drift_obligations.len());
+                obligations.extend(drift_obligations);
+            }
+            Err(e) => {
+                error!("Error fetching Drift obligations: {}", e);
+            }
         }
 
         Ok(obligations)
@@ -223,22 +557,33 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
     pub fn print_obligations(&self, obligations: &[UserObligation]) {
         use prettytable::{row, Table};
 
+        if obligations.is_empty() {
+            info!("No obligations found");
+            return;
+        }
+
         let mut table = Table::new();
-        table.add_row(row!["Protocol", "Market", "Token", "Amount", "Market Value", "Type"]);
+        table.add_row(row!["Protocol", "Market", "Token", "Amount", "Type"]);
 
         for obligation in obligations {
+            // Format amount with appropriate decimal places
+            let formatted_amount = format!(
+                "{:.3}",
+                obligation.amount as f64 / 10_f64.powi(obligation.mint_decimals as i32)
+            );
+
+            // Determine obligation type string
+            let obligation_type = match obligation.obligation_type {
+                ObligationType::Asset => "Supply",
+                ObligationType::Liability => "Borrow",
+            };
+
             table.add_row(row![
                 obligation.protocol_name,
                 obligation.market_name,
                 obligation.symbol,
-                format!(
-                    "{:.3}",
-                    obligation.amount as f64 / 10_f64.powi(obligation.mint_decimals as i32)
-                ),
-                match obligation.obligation_type {
-                    ObligationType::Asset => "Supply",
-                    ObligationType::Liability => "Borrow",
-                }
+                formatted_amount,
+                obligation_type
             ]);
         }
 
@@ -247,6 +592,11 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
 
     pub fn print_markets(&self) {
         use prettytable::{row, Table};
+
+        if self.assets.is_empty() {
+            info!("No markets loaded");
+            return;
+        }
 
         let mut table = Table::new();
         table.add_row(row![
@@ -262,8 +612,25 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
 
         const SCALE_SHIFT: u32 = 12;
         const SUPPLY_SCALE_FACTOR: f64 = 1_000_000_000_000_000_000_000_000.0;
-        for asset in &self.assets {
+
+        // Iterate through all assets in the HashMap
+        for asset in self.assets.values() {
             for reserve in &asset.lending_reserves {
+                // Format collateral assets list
+                let collateral_assets = reserve
+                    .collateral_assets
+                    .iter()
+                    .map(|c| c.symbol.clone())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                // Truncate if too long
+                let collateral_display = if collateral_assets.len() > 25 {
+                    format!("{}...", &collateral_assets[..25])
+                } else {
+                    collateral_assets
+                };
+
                 table.add_row(row![
                     reserve.protocol_name,
                     reserve.market_name,
@@ -278,214 +645,27 @@ impl<C: Clone + Deref<Target = impl Signer>> LendingMarketAggregator<C> {
                         "{:.2}%",
                         reserve.borrow_apy as f64 / (1u64 << SCALE_SHIFT) as f64 * 100.0
                     ),
-                    reserve
-                        .collateral_assets
-                        .iter()
-                        .map(|c| c.symbol.clone())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                        .chars()
-                        .take(25)
-                        .collect::<String>()
-                        + if reserve.collateral_assets.len() > 25 { "..." } else { "" }
+                    collateral_display
                 ]);
             }
         }
 
-        // let mut writer = std::io::stdout();
-        // table.to_csv(&mut writer).unwrap();
         table.printstd();
     }
 }
 
 pub fn format_large_number(num: f64) -> String {
-    if num >= 1_000_000_000.0 {
-        format!("{:.2}bn", num / 1_000_000_000.0)
-    } else if num >= 1_000_000.0 {
-        format!("{:.2}m", num / 1_000_000.0)
-    } else if num >= 100_000.0 {
-        format!("{:.2}k", num / 1_000.0)
-    } else {
-        format!("{:.2}", num)
-    }
-}
+    const BILLION: f64 = 1_000_000_000.0;
+    const MILLION: f64 = 1_000_000.0;
+    const THOUSAND: f64 = 1_000.0;
 
-#[derive(Debug)]
-pub enum ArrayError {
-    Drift(ErrorCode),
-    Other(Box<dyn std::error::Error>),
-}
-
-// Convert Drift errors automatically
-impl From<ErrorCode> for ArrayError {
-    fn from(err: ErrorCode) -> Self {
-        ArrayError::Drift(err)
-    }
-}
-
-// Convert any standard error
-impl From<Box<dyn std::error::Error>> for ArrayError {
-    fn from(err: Box<dyn std::error::Error>) -> Self {
-        ArrayError::Other(err)
-    }
-}
-
-// Add this to your ArrayError implementations
-impl From<String> for ArrayError {
-    fn from(err: String) -> Self {
-        ArrayError::Other(err.into())
-    }
-}
-
-// Also implement for &str to avoid manual conversion
-impl From<&str> for ArrayError {
-    fn from(err: &str) -> Self {
-        ArrayError::Other(err.into())
-    }
-}
-
-impl From<ProgramError> for ArrayError {
-    fn from(err: ProgramError) -> Self {
-        ArrayError::Other(Box::new(err))
-    }
-}
-
-impl From<LendingError> for ArrayError {
-    fn from(err: LendingError) -> Self {
-        ArrayError::Other(Box::new(err))
-    }
-}
-
-impl From<KaminoLendingError> for ArrayError {
-    fn from(err: KaminoLendingError) -> Self {
-        ArrayError::Other(Box::new(err))
-    }
-}
-
-// Add this implementation
-impl From<solana_client::client_error::ClientError> for ArrayError {
-    fn from(err: solana_client::client_error::ClientError) -> Self {
-        ArrayError::Other(Box::new(err))
+    match num {
+        n if n >= BILLION => format!("{:.2}bn", n / BILLION),
+        n if n >= MILLION => format!("{:.2}m", n / MILLION),
+        n if n >= THOUSAND => format!("{:.2}k", n / THOUSAND),
+        _ => format!("{:.2}", num),
     }
 }
 
 // Result type alias
-pub type ArrayResult<T> = Result<T, ArrayError>;
-
-// Optional: Implement Display for cleaner error messages
-impl std::fmt::Display for ArrayError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ArrayError::Drift(e) => write!(f, "Drift error: {:?}", e),
-            ArrayError::Other(e) => write!(f, "Other error: {}", e),
-        }
-    }
-}
-
-impl From<common::LendingError> for ArrayError {
-    fn from(err: common::LendingError) -> Self {
-        ArrayError::Other(Box::new(err))
-    }
-}
-
-// Implement Error trait to work with ? operator
-impl std::error::Error for ArrayError {}
-
-// fn load_token_metadata(
-//     &mut self,
-//     program: &Program<&Keypair>,
-//     mint: &Pubkey,
-// ) -> Result<(String, String), String> {
-//     if let Some(metadata) = self.metadata_cache.get(mint) {
-//         return Ok(metadata.clone());
-//     }
-
-//     let metadata_pda = self.get_metadata_pda(mint);
-//     let metadata_acc = program
-//         .rpc()
-//         .get_account(&metadata_pda)
-//         .map_err(|e| format!("Failed to fetch metadata: {}", e))?;
-
-//     let metadata = Metadata::from_bytes(&metadata_acc.data)
-//         .map_err(|e| format!("Failed to parse metadata: {}", e))?;
-
-//     let result = (
-//         metadata.name.trim_matches(char::from(0)).to_string(),
-//         metadata.symbol.trim_matches(char::from(0)).to_string(),
-//     );
-
-//     // Cache the result
-//     self.metadata_cache.insert(*mint, result.clone());
-
-//     Ok(result)
-// }
-
-// fn get_metadata_pda(&self, mint: &Pubkey) -> Pubkey {
-//     let metadata_program_id =
-//         Pubkey::from_str("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s").unwrap();
-//     let seeds = &[b"metadata", metadata_program_id.as_ref(), mint.as_ref()];
-//     let (metadata_pda, _) = Pubkey::find_program_address(seeds, &metadata_program_id);
-//     metadata_pda
-// }
-
-// let valid_collateral: Vec<MintAsset> = pool
-//     .reserves
-//     .iter()
-//     .filter(|reserve| reserve.config.liquidation_threshold > 0)
-//     .map(|reserve| {
-//         let mint_pubkey =
-//             Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
-//         let (name, symbol) = self
-//             .load_token_metadata(&program, &mint_pubkey)
-//             .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
-//         MintAsset {
-//             name,
-//             symbol,
-//             market_price_sf: 0,
-//             mint: reserve.liquidity.mint_pubkey.to_string(),
-//             lending_reserves: vec![],
-//         }
-//     })
-//     .collect();
-
-// // Load Drift markets
-// let mut pool_assets: HashMap<u8, Vec<MintAsset>> = HashMap::new();
-
-// // Group spot markets by pool_id and create MintAssets
-// for (_, market) in &self.drift_client.spot_markets.clone() {
-//     if market.optimal_utilization > 0 {
-//         let mint_pubkey = market.mint;
-//         let (name, symbol) = self
-//             .load_token_metadata(&program, &mint_pubkey)
-//             .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
-
-//         let mint_asset = MintAsset {
-//             name,
-//             symbol,
-//             market_price_sf: 0,
-//             mint: mint_pubkey.to_string(),
-//             lending_reserves: vec![],
-//         };
-
-//         pool_assets.entry(market.pool_id).or_default().push(mint_asset);
-//     }
-// }
-
-// let valid_collateral: Vec<MintAsset> = reserves
-//     .iter()
-//     .filter(|(_, reserve)| reserve.config.liquidation_threshold_pct > 0)
-//     .map(|(_, reserve)| {
-//         let mint_pubkey =
-//             Pubkey::from_str(&reserve.liquidity.mint_pubkey.to_string()).unwrap();
-//         let (name, symbol) = self
-//             .load_token_metadata(&program, &mint_pubkey)
-//             .unwrap_or(("Unknown".to_string(), "Unknown".to_string()));
-//         MintAsset {
-//             name,
-//             symbol,
-//             market_price_sf: 0,
-//             mint: reserve.liquidity.mint_pubkey.to_string(),
-//             lending_reserves: vec![],
-//         }
-//     })
-//     .collect();
+pub type ArrayResult<T> = Result<T, ClientError>;

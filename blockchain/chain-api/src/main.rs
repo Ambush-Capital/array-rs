@@ -1,4 +1,3 @@
-use anchor_client::{Client, Cluster};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -7,41 +6,31 @@ use axum::{
     Router,
 };
 use common::{MintAsset, UserObligation};
-use sol_interface::aggregator::client::{ArrayError, LendingMarketAggregator};
-use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    signature::{read_keypair_file, Keypair},
+use sol_interface::{
+    aggregator::client::LendingMarketAggregator, common::client_trait::ClientError,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 #[derive(Clone)]
 struct LendingService {
-    aggregator: Arc<RwLock<LendingMarketAggregator<Arc<Keypair>>>>,
+    aggregator: Arc<RwLock<LendingMarketAggregator>>,
 }
 
 impl LendingService {
     pub fn new() -> Self {
-        let rpc_url = std::env::var("RPC_URL").expect("Missing RPC_URL");
-        let keypair_path =
-            std::env::var("KEYPAIR_PATH").expect("Missing KEYPAIR_PATH environment variable");
-        let payer = Arc::new(read_keypair_file(keypair_path).expect("Failed to load keypair"));
+        let rpc_url = std::env::var("RPC_URL")
+            .unwrap_or_else(|_| "https://api.mainnet-beta.solana.com".to_string());
 
-        let client = Arc::new(Client::new_with_options(
-            Cluster::Custom(rpc_url.clone(), rpc_url),
-            payer.clone(),
-            CommitmentConfig::confirmed(),
-        ));
-
-        Self { aggregator: Arc::new(RwLock::new(LendingMarketAggregator::new(&client))) }
+        Self { aggregator: Arc::new(RwLock::new(LendingMarketAggregator::new(&rpc_url))) }
     }
 
-    pub async fn get_current_lending_markets(&self) -> Result<Vec<MintAsset>, ArrayError> {
+    pub async fn get_current_lending_markets(&self) -> Result<Vec<MintAsset>, ClientError> {
         let mut aggregator = self.aggregator.write().await;
 
-        aggregator.load_markets()?;
+        aggregator.load_markets_async().await?;
 
-        let assets = aggregator.assets.clone();
+        let assets = aggregator.assets.values().cloned().collect();
 
         Ok(assets)
     }
@@ -49,9 +38,9 @@ impl LendingService {
     pub async fn get_user_obligations(
         &self,
         pubkey: &str,
-    ) -> Result<Vec<UserObligation>, ArrayError> {
+    ) -> Result<Vec<UserObligation>, ClientError> {
         let aggregator = self.aggregator.read().await;
-        aggregator.get_user_obligations(pubkey)
+        aggregator.get_user_obligations_async(pubkey).await
     }
 }
 

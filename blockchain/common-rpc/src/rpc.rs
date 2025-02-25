@@ -4,7 +4,6 @@ use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType};
 use solana_sdk::account::Account;
 use solana_sdk::pubkey::Pubkey;
-use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -47,34 +46,6 @@ impl<'a> SolanaRpcBuilder<'a> {
             encoding: Some(UiAccountEncoding::Base64),
             with_context: None,
         }
-    }
-
-    /// Create a new RPC builder with the given RPC URL and program ID
-    /// This is a convenience function that creates a new RPC client and returns a builder
-    /// Note: This function is not recommended for performance-critical code as it creates a new client
-    pub fn new_from_url(
-        rpc_url: &str,
-        program_id_str: &str,
-    ) -> Result<impl Fn() -> Result<Vec<(Pubkey, Account)>, RpcError>, RpcError> {
-        let program_id = Pubkey::from_str(program_id_str)
-            .map_err(|e| RpcError::InvalidAddress(e.to_string()))?;
-
-        let rpc_client = RpcClient::new(rpc_url.to_string());
-
-        Ok(move || {
-            let config = RpcProgramAccountsConfig {
-                filters: None,
-                account_config: RpcAccountInfoConfig {
-                    encoding: Some(UiAccountEncoding::Base64),
-                    ..Default::default()
-                },
-                with_context: None,
-            };
-
-            rpc_client
-                .get_program_accounts_with_config(&program_id, config)
-                .map_err(|e| RpcError::RpcError(Box::new(e)))
-        })
     }
 
     /// Set a different program ID to query
