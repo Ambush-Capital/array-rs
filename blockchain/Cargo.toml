@@ -2,6 +2,7 @@
 members = [
     "drift",
     "sol-interface",
-    "chain-api"
+    "chain-api",
+    "common-rpc"
 ]
 resolver = "2"

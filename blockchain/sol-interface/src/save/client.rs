@@ -1,17 +1,16 @@
+use crate::common::rpc_utils::{
+    format_pubkey_for_error, with_pooled_client, LendingErrorConverter,
+};
 use crate::save::models::{Obligation, Reserve};
 use anchor_client::{Client, Program};
 use common::{
     lending::{LendingClient, LendingError},
     ObligationType, UserObligation,
 };
-use prettytable::{row, Table};
-use solana_client::{
-    rpc_config::RpcProgramAccountsConfig,
-    rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType},
-};
+use common_rpc::SolanaRpcBuilder;
+use log::debug;
 use solana_program::program_pack::Pack;
 use solana_sdk::{pubkey::Pubkey, signature::Signer};
-use std::collections::HashMap;
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -61,36 +60,36 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
         Self { program, pools }
     }
 
+    /// Get the RPC URL from the program
+    fn get_rpc_url(&self) -> String {
+        self.program.rpc().url().to_string()
+    }
+
     pub fn load_reserves_for_pool(
         program: &Program<C>,
         pool: &SolendPool,
     ) -> Result<Vec<Reserve>, LendingError> {
-        let reserve_filters = vec![
-            RpcFilterType::DataSize(Reserve::LEN as u64),
-            RpcFilterType::Memcmp(Memcmp::new(
-                10,
-                MemcmpEncodedBytes::Base58(pool.pubkey.to_string()),
-            )),
-        ];
+        // Get the RPC URL
+        let rpc_url = program.rpc().url().to_string();
 
-        let reserve_accounts = program
-            .rpc()
-            .get_program_accounts_with_config(
-                &program.id(),
-                RpcProgramAccountsConfig {
-                    filters: Some(reserve_filters),
-                    account_config: solana_client::rpc_config::RpcAccountInfoConfig {
-                        encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-            )
-            .map_err(|e| LendingError::RpcError(Box::new(e)))?;
+        // Use the RPC builder with optimized filters
+        let accounts = with_pooled_client(&rpc_url, |client| {
+            SolanaRpcBuilder::new(client, program.id())
+                .with_data_size(Reserve::LEN as u64)
+                .with_memcmp_base58(10, pool.pubkey.to_string())
+                .optimize_filters() // Apply filter optimization
+                .get_program_accounts_with_conversion::<LendingError, LendingErrorConverter>()
+        })?;
 
-        let reserves = reserve_accounts
+        let reserves = accounts
             .into_iter()
-            .filter_map(|(_, account)| Reserve::unpack(&account.data).ok())
+            .filter_map(|(pubkey, account)| match Reserve::unpack(&account.data) {
+                Ok(reserve) => Some(reserve),
+                Err(e) => {
+                    debug!("Failed to unpack reserve {}: {}", format_pubkey_for_error(&pubkey), e);
+                    None
+                }
+            })
             .collect();
 
         Ok(reserves)
@@ -104,102 +103,115 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
         Ok(())
     }
 
-    pub fn print_pools(&self, reserves_by_pool: &HashMap<SolendPool, Vec<(Pubkey, Reserve)>>) {
-        let mut table = Table::new();
-        table.add_row(row![
-            "Pool",
-            "Token Mint Address",
-            "Borrow Amount (m)",
-            "Available Amount (m)",
-            "Supply Amount (m)",
-            "Market Price",
-            "Util Rate",
-            "Borrow APR",
-            "Supply APR",
-            "Pub Key"
-        ]);
-
-        for (pool, reserves) in reserves_by_pool {
-            for (pubkey, reserve) in reserves {
-                table.add_row(row![
-                    pool.name,
-                    reserve.liquidity.mint_pubkey.to_string(),
-                    format!(
-                        "{:.3}",
-                        reserve.liquidity.borrowed_amount_wads.to_scaled_val().unwrap_or(0) as f64
-                            / 1_000_000.0
-                    ),
-                    format!("{:.3}", reserve.liquidity.available_amount as f64 / 1_000_000.0),
-                    format!("{:.3}", reserve.liquidity.total_supply().unwrap()),
-                    format!("{:.3}", reserve.liquidity.market_price),
-                    format!("{:.1}", reserve.liquidity.utilization_rate().unwrap()),
-                    format!("{:.1}%", reserve.current_borrow_rate_unadjusted().unwrap()),
-                    format!("{:.1}%", reserve.current_supply_apr_unadjusted().unwrap()),
-                    pubkey.to_string()
-                ]);
-                // println!("{} {:#?}", pool.name,reserve.config);
-            }
-        }
-        table.printstd();
-    }
-
     pub fn get_user_obligations(
         &self,
         owner_pubkey: &str,
     ) -> Result<Vec<UserObligation>, LendingError> {
         let obligations = self.get_obligations(owner_pubkey)?;
-        let mut user_obligations = Vec::new();
 
+        // Pre-allocate with estimated capacity (deposits + borrows per obligation)
+        let estimated_capacity =
+            obligations.iter().map(|obl| obl.deposits.len() + obl.borrows.len()).sum();
+        let mut user_obligations = Vec::with_capacity(estimated_capacity);
+
+        // Collect all reserve pubkeys first
+        let mut reserve_pubkeys = Vec::with_capacity(estimated_capacity);
+
+        for obligation in &obligations {
+            // Add deposit reserves
+            for deposit in &obligation.deposits {
+                reserve_pubkeys.push(Pubkey::new_from_array(deposit.deposit_reserve.to_bytes()));
+            }
+
+            // Add borrow reserves
+            for borrow in &obligation.borrows {
+                reserve_pubkeys.push(Pubkey::new_from_array(borrow.borrow_reserve.to_bytes()));
+            }
+        }
+
+        // Fetch all reserves in a single batch operation
+        let rpc_url = self.get_rpc_url();
+        let reserves = with_pooled_client(&rpc_url, |client| {
+            common_rpc::get_multiple_accounts_with_conversion::<LendingError, LendingErrorConverter>(
+                client,
+                &reserve_pubkeys,
+            )
+        })?;
+
+        // Now process obligations with all reserve data available
         for obligation in obligations {
             // Process deposits
             for deposit in obligation.deposits {
-                let reserve_account = self
-                    .program
-                    .rpc()
-                    .get_account(&Pubkey::new_from_array(deposit.deposit_reserve.to_bytes()))
-                    .map_err(|e| LendingError::RpcError(Box::new(e)))?;
+                let deposit_reserve_pubkey =
+                    Pubkey::new_from_array(deposit.deposit_reserve.to_bytes());
 
-                let reserve = Reserve::unpack(&reserve_account.data)
-                    .map_err(|e| LendingError::DeserializationError(e.to_string()))?;
+                if let Some(reserve_account) = reserves.get(&deposit_reserve_pubkey) {
+                    let reserve = Reserve::unpack(&reserve_account.data).map_err(|e| {
+                        LendingError::DeserializationError(format!(
+                            "Failed to unpack reserve {}: {}",
+                            format_pubkey_for_error(&deposit_reserve_pubkey),
+                            e
+                        ))
+                    })?;
 
-                let exchange_rate = reserve
-                    .collateral_exchange_rate()
-                    .map_err(|e| LendingError::ProtocolError(e.to_string()))?;
+                    let exchange_rate = reserve.collateral_exchange_rate().map_err(|e| {
+                        LendingError::ProtocolError(format!(
+                            "Failed to get collateral exchange rate for reserve {}: {}",
+                            format_pubkey_for_error(&deposit_reserve_pubkey),
+                            e
+                        ))
+                    })?;
 
-                let amount =
-                    exchange_rate.collateral_to_liquidity(deposit.deposited_amount).unwrap_or(0);
+                    let amount = exchange_rate
+                        .collateral_to_liquidity(deposit.deposited_amount)
+                        .unwrap_or(0);
 
-                user_obligations.push(UserObligation {
-                    symbol: reserve.liquidity.mint_pubkey.to_string(),
-                    mint: reserve.liquidity.mint_pubkey.to_string(),
-                    mint_decimals: reserve.liquidity.mint_decimals as u32,
-                    amount,
-                    protocol_name: self.protocol_name().to_string(),
-                    market_name: "Main Pool".to_string(), // Could be improved by looking up actual pool name
-                    obligation_type: ObligationType::Asset,
-                });
+                    user_obligations.push(UserObligation {
+                        symbol: reserve.liquidity.mint_pubkey.to_string(),
+                        mint: reserve.liquidity.mint_pubkey.to_string(),
+                        mint_decimals: reserve.liquidity.mint_decimals as u32,
+                        amount,
+                        protocol_name: self.protocol_name().to_string(),
+                        market_name: "Main Pool".to_string(), // Could be improved by looking up actual pool name
+                        obligation_type: ObligationType::Asset,
+                    });
+                } else {
+                    debug!(
+                        "Reserve not found for deposit: {}",
+                        format_pubkey_for_error(&deposit_reserve_pubkey)
+                    );
+                }
             }
 
             // Process borrows
             for borrow in obligation.borrows {
-                let reserve_account = self
-                    .program
-                    .rpc()
-                    .get_account(&Pubkey::new_from_array(borrow.borrow_reserve.to_bytes()))
-                    .map_err(|e| LendingError::RpcError(Box::new(e)))?;
+                let borrow_reserve_pubkey =
+                    Pubkey::new_from_array(borrow.borrow_reserve.to_bytes());
 
-                let reserve = Reserve::unpack(&reserve_account.data)
-                    .map_err(|e| LendingError::DeserializationError(e.to_string()))?;
+                if let Some(reserve_account) = reserves.get(&borrow_reserve_pubkey) {
+                    let reserve = Reserve::unpack(&reserve_account.data).map_err(|e| {
+                        LendingError::DeserializationError(format!(
+                            "Failed to unpack reserve {}: {}",
+                            format_pubkey_for_error(&borrow_reserve_pubkey),
+                            e
+                        ))
+                    })?;
 
-                user_obligations.push(UserObligation {
-                    symbol: reserve.liquidity.mint_pubkey.to_string(),
-                    mint: reserve.liquidity.mint_pubkey.to_string(),
-                    mint_decimals: reserve.liquidity.mint_decimals as u32,
-                    amount: borrow.borrowed_amount_wads.try_round_u64().unwrap_or(0),
-                    protocol_name: self.protocol_name().to_string(),
-                    market_name: "Main Pool".to_string(), // Could be improved by looking up actual pool name
-                    obligation_type: ObligationType::Liability,
-                });
+                    user_obligations.push(UserObligation {
+                        symbol: reserve.liquidity.mint_pubkey.to_string(),
+                        mint: reserve.liquidity.mint_pubkey.to_string(),
+                        mint_decimals: reserve.liquidity.mint_decimals as u32,
+                        amount: borrow.borrowed_amount_wads.try_round_u64().unwrap_or(0),
+                        protocol_name: self.protocol_name().to_string(),
+                        market_name: "Main Pool".to_string(), // Could be improved by looking up actual pool name
+                        obligation_type: ObligationType::Liability,
+                    });
+                } else {
+                    debug!(
+                        "Reserve not found for borrow: {}",
+                        format_pubkey_for_error(&borrow_reserve_pubkey)
+                    );
+                }
             }
         }
 
@@ -208,51 +220,51 @@ impl<C: Clone + Deref<Target = impl Signer>> SaveClient<C> {
 
     fn get_obligations(&self, owner_pubkey: &str) -> Result<Vec<Obligation>, LendingError> {
         let mut ret = Vec::new();
-        let owner = owner_pubkey
-            .parse::<Pubkey>()
-            .map_err(|e| LendingError::InvalidAddress(e.to_string()))?;
+        let owner = owner_pubkey.parse::<Pubkey>().map_err(|e| {
+            LendingError::InvalidAddress(format!("Invalid owner pubkey {}: {}", owner_pubkey, e))
+        })?;
 
-        let filters = vec![
-            RpcFilterType::DataSize(Obligation::LEN as u64),
-            RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-                1 + 8 + 1 + 32, // Skip version(1) + last_update(8+1) + lending_market(32) to get to owner
-                owner.to_bytes().to_vec(),
-            )),
-        ];
+        // Get the RPC URL
+        let rpc_url = self.get_rpc_url();
 
-        let obligations = self
-            .program
-            .rpc()
-            .get_program_accounts_with_config(
-                &self.program.id(),
-                RpcProgramAccountsConfig {
-                    filters: Some(filters),
-                    account_config: solana_client::rpc_config::RpcAccountInfoConfig {
-                        encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-            )
-            .map_err(|e| LendingError::RpcError(Box::new(e)))?;
+        // Use the RPC builder with optimized filters
+        let accounts = with_pooled_client(&rpc_url, |client| {
+            SolanaRpcBuilder::new(client, self.program.id())
+                .with_data_size(Obligation::LEN as u64)
+                .with_memcmp(1 + 8 + 1 + 32, owner.to_bytes().to_vec()) // Skip version(1) + last_update(8+1) + lending_market(32) to get to owner
+                .optimize_filters() // Apply filter optimization
+                .get_program_accounts_with_conversion::<LendingError, LendingErrorConverter>()
+        })?;
 
-        if obligations.is_empty() {
+        if accounts.is_empty() {
+            debug!("No current obligations found for {}", owner_pubkey);
             return Ok(ret);
         }
 
-        for (_, account) in obligations {
-            let obligation = Obligation::unpack(&account.data)
-                .map_err(|e| LendingError::DeserializationError(e.to_string()))?;
+        for (pubkey, account) in accounts {
+            match Obligation::unpack(&account.data) {
+                Ok(obligation) => {
+                    if obligation.owner.to_string() != owner.to_string() {
+                        debug!("Obligation owner mismatch: {} != {}", obligation.owner, owner);
+                        continue;
+                    }
 
-            if obligation.owner.to_string() != owner.to_string() {
-                continue;
+                    if obligation.deposits.is_empty() && obligation.borrows.is_empty() {
+                        debug!("Skipping empty obligation {}", format_pubkey_for_error(&pubkey));
+                        continue;
+                    }
+
+                    ret.push(obligation);
+                }
+                Err(e) => {
+                    debug!(
+                        "Failed to unpack obligation {}: {}",
+                        format_pubkey_for_error(&pubkey),
+                        e
+                    );
+                    continue;
+                }
             }
-
-            if obligation.deposits.is_empty() && obligation.borrows.is_empty() {
-                continue;
-            }
-
-            ret.push(obligation);
         }
 
         Ok(ret)

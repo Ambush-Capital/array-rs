@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod lending;
+pub mod rpc;
 pub use lending::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

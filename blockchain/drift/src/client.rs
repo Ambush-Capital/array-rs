@@ -7,11 +7,28 @@ use common::{
     lending::{LendingClient, LendingError},
     ObligationType, UserObligation,
 };
+use common_rpc::{with_rpc_client, RpcError, RpcErrorConverter};
 use log::debug;
-use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use std::{ops::Deref, str::FromStr};
+
+// Define discriminators as constants
+const DRIFT_SPOT_MARKET_DISCRIMINATOR: [u8; 8] = [100, 177, 8, 107, 168, 65, 65, 39];
+const DRIFT_USER_DISCRIMINATOR: [u8; 8] = [159, 117, 95, 227, 239, 151, 58, 236]; // Correct User discriminator
+
+// Implement the RpcErrorConverter trait for LendingError
+struct DriftErrorConverter;
+
+impl RpcErrorConverter<LendingError> for DriftErrorConverter {
+    fn convert_error(error: RpcError) -> LendingError {
+        match error {
+            RpcError::RpcError(e) => LendingError::RpcError(e),
+            RpcError::DeserializationError(e) => LendingError::DeserializationError(e),
+            RpcError::InvalidAddress(e) => LendingError::InvalidAddress(e),
+            RpcError::AccountNotFound(e) => LendingError::AccountNotFound(e),
+        }
+    }
+}
 
 pub struct DriftClient<C> {
     program: Program<C>,
@@ -30,37 +47,29 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
     }
 
     pub fn load_spot_markets(&mut self) -> Result<(), LendingError> {
-        let filters = vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-            0,
-            [100, 177, 8, 107, 168, 65, 65, 39].to_vec(),
-        ))];
+        // Get the RPC URL from the program
+        let rpc_url = self.program.rpc().url().to_string();
 
-        let account_config = RpcAccountInfoConfig {
-            encoding: Some(solana_account_decoder::UiAccountEncoding::Base64Zstd),
-            ..RpcAccountInfoConfig::default()
-        };
+        // Use the RPC builder with optimized filters
+        let accounts = with_rpc_client(&rpc_url, |client| {
+            common_rpc::SolanaRpcBuilder::new(client, self.drift_program_id)
+                .with_memcmp(0, DRIFT_SPOT_MARKET_DISCRIMINATOR.to_vec())
+                .with_context(true)
+                .optimize_filters() // Apply filter optimization
+                .get_program_accounts_with_conversion::<LendingError, DriftErrorConverter>()
+        })?;
 
-        let gpa_config = RpcProgramAccountsConfig {
-            filters: Some(filters),
-            account_config,
-            with_context: Some(true),
-        };
+        // Pre-allocate with capacity
+        self.spot_markets = Vec::with_capacity(accounts.len());
 
-        let accounts = self
-            .program
-            .rpc()
-            .get_program_accounts_with_config(&self.drift_program_id, gpa_config)
-            .map_err(|e| LendingError::RpcError(Box::new(e)))?;
-
-        self.spot_markets = accounts
-            .into_iter()
-            .filter_map(|(pubkey, account)| {
-                SpotMarket::try_deserialize(&mut &account.data[..])
-                    .map(|market| (pubkey, market))
-                    .ok()
-                    .filter(|(_, market)| market.is_active())
-            })
-            .collect();
+        // Process accounts
+        for (pubkey, account) in accounts {
+            if let Ok(market) = SpotMarket::try_deserialize(&mut &account.data[..]) {
+                if market.is_active() {
+                    self.spot_markets.push((pubkey, market));
+                }
+            }
+        }
 
         Ok(())
     }
@@ -117,37 +126,32 @@ impl<C: Clone + Deref<Target = impl Signer>> DriftClient<C> {
         let owner = Pubkey::from_str(owner_pubkey)
             .map_err(|e| LendingError::InvalidAddress(e.to_string()))?;
 
-        let filters = vec![
-            RpcFilterType::Memcmp(Memcmp::new_raw_bytes(8, owner.to_bytes().to_vec())),
-            RpcFilterType::DataSize(std::mem::size_of::<User>() as u64 + 8),
-        ];
+        // Get the RPC URL from the program
+        let rpc_url = self.program.rpc().url().to_string();
 
-        let accounts = self
-            .program
-            .rpc()
-            .get_program_accounts_with_config(
-                &self.drift_program_id,
-                RpcProgramAccountsConfig {
-                    filters: Some(filters),
-                    account_config: RpcAccountInfoConfig {
-                        encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-            )
-            .map_err(|e| LendingError::RpcError(Box::new(e)))?;
+        // Use the RPC builder with optimized filters
+        let accounts = with_rpc_client(&rpc_url, |client| {
+            common_rpc::SolanaRpcBuilder::new(client, self.drift_program_id)
+                .with_memcmp(0, DRIFT_USER_DISCRIMINATOR.to_vec())
+                .with_memcmp_pubkey(8, &owner)
+                .with_data_size(std::mem::size_of::<User>() as u64 + 8)
+                .optimize_filters() // Apply filter optimization
+                .get_program_accounts_with_conversion::<LendingError, DriftErrorConverter>()
+        })?;
 
         if accounts.is_empty() {
             debug!("No Drift accounts found for {}", owner_pubkey);
             return Ok(Vec::new());
         }
 
-        let mut result = Vec::new();
-        for (_, account) in accounts {
+        // Pre-allocate with estimated capacity
+        let mut result = Vec::with_capacity(accounts.len() * 5); // Estimate 5 positions per account
+
+        for (_pubkey, account) in accounts {
             let user = User::try_deserialize(&mut &account.data[..])
                 .map_err(|e| LendingError::DeserializationError(e.to_string()))?;
 
+            // Filter and extend in one operation to avoid intermediate allocations
             result.extend(user.spot_positions.iter().filter(|p| p.scaled_balance > 0).copied());
         }
 
