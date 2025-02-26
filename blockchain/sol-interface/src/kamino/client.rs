@@ -3,6 +3,7 @@ use crate::common::rpc_utils::{
 };
 use borsh::BorshDeserialize;
 use common::{
+    asset_utils::get_symbol_for_mint,
     lending::{LendingClient, LendingError},
     ObligationType, UserObligation,
 };
@@ -182,9 +183,15 @@ impl KaminoClient {
 
                 let deposit_reserve_pubkey = Pubkey::from(deposit.deposit_reserve.to_bytes());
                 if let Some(reserve) = self.get_reserve_by_pubkey(&deposit_reserve_pubkey)? {
-                    // Get symbol and mint once
-                    let symbol = reserve.token_symbol().to_string();
+                    // Get reserve token symbol
+                    let reserve_symbol = reserve.token_symbol().to_string();
+
+                    // Get mint
                     let mint = reserve.liquidity.mint_pubkey.to_string();
+
+                    // Look up symbol from asset map, fallback to reserve_symbol
+                    let symbol = get_symbol_for_mint(&mint).unwrap_or(reserve_symbol);
+
                     let exchange_rate = reserve
                         .collateral_exchange_rate()
                         .map_err(|e| LendingError::RpcError(Box::new(e)))?;
@@ -213,11 +220,15 @@ impl KaminoClient {
 
                 let borrow_reserve_pubkey = Pubkey::from(borrow.borrow_reserve.to_bytes());
                 if let Some(reserve) = self.get_reserve_by_pubkey(&borrow_reserve_pubkey)? {
-                    // Get symbol and mint once
-                    let symbol = reserve.token_symbol().to_string();
+                    // Get reserve token symbol
+                    let reserve_symbol = reserve.token_symbol().to_string();
+
+                    // Get mint
                     let mint = reserve.liquidity.mint_pubkey.to_string();
-                    // let exchange_rate = reserve.collateral_exchange_rate()?;
-                    // let amount = Fraction::from_bits(borrow.borrowed_amount_sf).to_num::<u64>();
+
+                    // Look up symbol from asset map, fallback to reserve_symbol
+                    let symbol = get_symbol_for_mint(&mint).unwrap_or(reserve_symbol);
+
                     let exchange_rate = reserve
                         .collateral_exchange_rate()
                         .map_err(|e| LendingError::RpcError(Box::new(e)))?;

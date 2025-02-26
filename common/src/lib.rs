@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+pub mod asset_utils;
 pub mod lending;
 pub mod rpc;
 pub use lending::*;

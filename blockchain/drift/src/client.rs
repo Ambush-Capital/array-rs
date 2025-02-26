@@ -3,6 +3,7 @@ use crate::models::idl::accounts::{SpotMarket, User};
 use crate::models::idl::types::{SpotBalanceType, SpotPosition};
 use anchor_lang::AccountDeserialize;
 use common::{
+    asset_utils::get_symbol_for_mint,
     lending::{LendingClient, LendingError},
     ObligationType, UserObligation,
 };
@@ -105,7 +106,7 @@ impl DriftClient {
                 ObligationType::Liability
             };
 
-            let (symbol, mint, mint_decimals, market_name, amount) = self
+            let (market_symbol, mint, mint_decimals, market_name, amount) = self
                 .spot_markets
                 .iter()
                 .find(|(_, m)| m.market_index == position.market_index)
@@ -131,6 +132,9 @@ impl DriftClient {
                         position.scaled_balance,
                     )
                 });
+
+            // Look up symbol from asset map, fallback to market_symbol
+            let symbol = get_symbol_for_mint(&mint).unwrap_or(market_symbol);
 
             obligations.push(UserObligation {
                 symbol,

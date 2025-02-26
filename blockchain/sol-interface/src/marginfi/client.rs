@@ -5,6 +5,7 @@ use crate::common::rpc_utils::{
 };
 use anchor_lang::AnchorDeserialize;
 use common::{
+    asset_utils::get_symbol_for_mint,
     lending::{LendingClient, LendingError},
     ObligationType, UserObligation,
 };
@@ -159,8 +160,11 @@ impl MarginfiClient {
                 // Get mint once
                 let mint = bank.mint.to_string();
 
+                // Look up symbol from asset map, fallback to empty string
+                let symbol = get_symbol_for_mint(&mint).unwrap_or_default();
+
                 obligations.push(UserObligation {
-                    symbol: "".to_string(), // Empty string is cheap
+                    symbol,
                     mint,
                     mint_decimals: bank.mint_decimals as u32,
                     amount: I80F48::to_num(amount),

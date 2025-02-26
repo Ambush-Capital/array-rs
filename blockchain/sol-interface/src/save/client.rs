@@ -3,6 +3,7 @@ use crate::common::rpc_utils::{
 };
 use crate::save::models::{Obligation, Reserve};
 use common::{
+    asset_utils::get_symbol_for_mint,
     lending::{LendingClient, LendingError},
     ObligationType, UserObligation,
 };
@@ -196,11 +197,14 @@ impl SaveClient {
                         .collateral_to_liquidity(deposit.deposited_amount)
                         .unwrap_or(0);
 
-                    // Use the mint pubkey once and reuse it for both symbol and mint
+                    // Use the mint pubkey once
                     let mint_str = reserve.liquidity.mint_pubkey.to_string();
 
+                    // Look up symbol from asset map, fallback to mint_str
+                    let symbol = get_symbol_for_mint(&mint_str).unwrap_or_else(|| mint_str.clone());
+
                     user_obligations.push(UserObligation {
-                        symbol: mint_str.clone(), // Clone only once
+                        symbol,
                         mint: mint_str,
                         mint_decimals: reserve.liquidity.mint_decimals as u32,
                         amount,
@@ -225,11 +229,14 @@ impl SaveClient {
                         ))
                     })?;
 
-                    // Use the mint pubkey once and reuse it for both symbol and mint
+                    // Use the mint pubkey once
                     let mint_str = reserve.liquidity.mint_pubkey.to_string();
 
+                    // Look up symbol from asset map, fallback to mint_str
+                    let symbol = get_symbol_for_mint(&mint_str).unwrap_or_else(|| mint_str.clone());
+
                     user_obligations.push(UserObligation {
-                        symbol: mint_str.clone(), // Clone only once
+                        symbol,
                         mint: mint_str,
                         mint_decimals: reserve.liquidity.mint_decimals as u32,
                         amount: borrow.borrowed_amount_wads.try_round_u64().unwrap_or(0),

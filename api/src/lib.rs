@@ -85,6 +85,7 @@ impl From<MintAsset> for ApiMintAsset {
 #[derive(Serialize)]
 pub struct ApiUserObligation {
     pub symbol: String,
+    #[serde(skip)]
     pub mint: String,
     pub protocol_name: String,
     pub market_name: String,
@@ -436,6 +437,7 @@ pub struct WalletData {
 
 #[derive(serde::Serialize)]
 pub struct ApiTokenBalance {
+    #[serde(skip)]
     pub mint: String,
     pub symbol: String,
     #[serde(serialize_with = "serialize_dollar_amount")]
