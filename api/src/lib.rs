@@ -246,6 +246,38 @@ impl ApiService {
         info!("Retrieved {} obligations for pubkey {}", obligations.len(), pubkey);
         Ok(obligations)
     }
+
+    pub async fn get_wallet_balances(&self, pubkey: &str) -> Result<Vec<common::TokenBalance>> {
+        debug!("Fetching wallet balances from chain-api for pubkey: {}", pubkey);
+
+        // Forward request to chain-api
+        let url = format!("http://localhost:3000/wallet_balance/{}", pubkey);
+        let response = self.client.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            error!("Failed to fetch wallet balances: HTTP {}", response.status());
+            return Err(anyhow::anyhow!(
+                "Failed to fetch wallet balances: HTTP {}",
+                response.status()
+            ));
+        }
+
+        let balances = response.json::<Vec<common::TokenBalance>>().await?;
+        info!("Retrieved {} token balances for pubkey {}", balances.len(), pubkey);
+        Ok(balances)
+    }
+
+    pub async fn get_wallet_data(&self, pubkey: &str) -> Result<WalletData> {
+        // Get both wallet balances and positions in parallel
+        let (balances, positions) =
+            tokio::join!(self.get_wallet_balances(pubkey), self.get_user_obligations(pubkey));
+
+        // Convert common::TokenBalance to ApiTokenBalance
+        let api_balances =
+            balances?.into_iter().map(ApiTokenBalance::from).collect::<Vec<ApiTokenBalance>>();
+
+        Ok(WalletData { wallet_balances: api_balances, wallet_positions: positions? })
+    }
 }
 
 #[derive(serde::Serialize, sqlx::FromRow)]
@@ -321,7 +353,8 @@ pub async fn create_router(service: ApiService) -> Router {
     Router::new()
         .route("/current_markets", get(get_current_markets))
         .route("/historical_markets", get(get_historical_markets))
-        .route("/wallet/{pubkey}", get(get_user_obligations))
+        .route("/wallet/{pubkey}", get(get_wallet_data))
+        .route("/user_obligations/{pubkey}", get(get_user_obligations))
         .with_state(service)
 }
 
@@ -355,6 +388,30 @@ async fn get_historical_markets(
     }
 }
 
+async fn get_wallet_data(
+    State(service): State<ApiService>,
+    Path(pubkey): Path<String>,
+) -> (StatusCode, Json<WalletData>) {
+    match service.get_wallet_data(&pubkey).await {
+        Ok(wallet_data) => {
+            info!(
+                "Successfully returned wallet data for pubkey {}: {} balances, {} positions",
+                pubkey,
+                wallet_data.wallet_balances.len(),
+                wallet_data.wallet_positions.len()
+            );
+            (StatusCode::OK, Json(wallet_data))
+        }
+        Err(e) => {
+            error!("Error fetching wallet data for pubkey {}: {}", pubkey, e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(WalletData { wallet_balances: vec![], wallet_positions: vec![] }),
+            )
+        }
+    }
+}
+
 async fn get_user_obligations(
     State(service): State<ApiService>,
     Path(pubkey): Path<String>,
@@ -367,6 +424,30 @@ async fn get_user_obligations(
         Err(e) => {
             error!("Error fetching obligations for pubkey {}: {}", pubkey, e);
             (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct WalletData {
+    pub wallet_balances: Vec<ApiTokenBalance>,
+    pub wallet_positions: Vec<ApiUserObligation>,
+}
+
+#[derive(serde::Serialize)]
+pub struct ApiTokenBalance {
+    pub mint: String,
+    pub symbol: String,
+    #[serde(serialize_with = "serialize_dollar_amount")]
+    pub amount: (u64, u32),
+}
+
+impl From<common::TokenBalance> for ApiTokenBalance {
+    fn from(balance: common::TokenBalance) -> Self {
+        Self {
+            mint: balance.mint,
+            symbol: balance.symbol,
+            amount: (balance.amount, balance.decimals as u32),
         }
     }
 }

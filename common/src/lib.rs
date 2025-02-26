@@ -53,3 +53,18 @@ pub struct UserObligation {
     pub market_name: String,
     pub obligation_type: ObligationType,
 }
+
+/// Represents a token balance for a specific wallet
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenBalance {
+    /// Token symbol (e.g., "USDC")
+    pub symbol: String,
+    /// Mint address of the token
+    pub mint: String,
+    /// Raw token amount (needs to be divided by 10^decimals for human-readable form)
+    pub amount: u64,
+    /// Number of decimal places for this token
+    pub decimals: u8,
+    /// Token account address that holds this balance
+    pub token_account: String,
+}

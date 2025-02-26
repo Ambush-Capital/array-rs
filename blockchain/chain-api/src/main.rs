@@ -5,7 +5,7 @@ use axum::{
     routing::get,
     Router,
 };
-use common::{MintAsset, UserObligation};
+use common::{MintAsset, TokenBalance, UserObligation};
 use sol_interface::{
     aggregator::client::LendingMarketAggregator, common::client_trait::ClientError,
 };
@@ -42,6 +42,19 @@ impl LendingService {
         let aggregator = self.aggregator.read().await;
         aggregator.get_user_obligations_async(pubkey).await
     }
+
+    pub async fn get_wallet_token_balances(
+        &self,
+        wallet_pubkey: &str,
+    ) -> Result<Vec<TokenBalance>, ClientError> {
+        let aggregator = self.aggregator.read().await;
+
+        // Call the fetch_wallet_token_balances method and convert any errors to ClientError
+        aggregator
+            .fetch_wallet_token_balances(wallet_pubkey)
+            .await
+            .map_err(|e| ClientError::Other(format!("Failed to fetch wallet balances: {}", e)))
+    }
 }
 
 async fn get_current_lending_markets(
@@ -69,6 +82,19 @@ async fn get_user_obligations(
     }
 }
 
+async fn get_wallet_balance(
+    State(service): State<LendingService>,
+    Path(pubkey): Path<String>,
+) -> (StatusCode, Json<Vec<TokenBalance>>) {
+    match service.get_wallet_token_balances(&pubkey).await {
+        Ok(balances) => (StatusCode::OK, Json(balances)),
+        Err(e) => {
+            eprintln!("Error fetching wallet balances for {}: {}", pubkey, e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
+        }
+    }
+}
+
 // basic handler that responds with a static string
 async fn root() -> &'static str {
     "Hello, World!"
@@ -87,6 +113,7 @@ async fn main() {
         // `POST /users` goes to `create_user`
         .route("/current_lending_markets", get(get_current_lending_markets))
         .route("/obligations/{pubkey}", get(get_user_obligations))
+        .route("/wallet_balance/{pubkey}", get(get_wallet_balance))
         .with_state(service);
 
     // run our app with hyper, listening globally on port 3000

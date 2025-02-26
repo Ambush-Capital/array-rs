@@ -2,7 +2,8 @@
 
 use sol_interface::aggregator::client::LendingMarketAggregator;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
     // Initialize with RPC URL
@@ -20,4 +21,18 @@ fn main() {
     let obligations =
         aggregator.get_user_obligations("AmrekAq6s3n2frDi67WUaZnbPkBb1h4xaid1Y8QLMAYN");
     aggregator.print_obligations(&obligations.unwrap());
+
+    // USDC mainnet token mint address
+    let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+    // Fetch USDC balance for the same wallet
+    let token_balance = sol_interface::aggregator::wallet::fetch_token_balances(
+        &rpc_url,
+        "AmrekAq6s3n2frDi67WUaZnbPkBb1h4xaid1Y8QLMAYN",
+        &[(usdc_mint.to_string(), "USDC".to_string())],
+    )
+    .await
+    .unwrap();
+
+    println!("USDC Balance: {:?}", token_balance);
 }

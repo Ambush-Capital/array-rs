@@ -20,6 +20,9 @@ pub enum ClientError {
 
     #[error("Protocol error: {0}")]
     ProtocolError(String),
+
+    #[error("Other error: {0}")]
+    Other(String),
 }
 
 pub trait LendingClient<T> {
