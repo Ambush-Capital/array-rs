@@ -13,7 +13,7 @@ use std::{collections::HashMap, str::FromStr};
 
 use crate::kamino::{
     models::{lending_market::LendingMarket, reserve::Reserve},
-    utils::consts::OBLIGATION_SIZE,
+    utils::{consts::OBLIGATION_SIZE, fraction::Fraction},
 };
 use crate::{
     debug,
@@ -175,18 +175,28 @@ impl KaminoClient {
                 .to_string();
 
             // Process deposits
-            for deposit in obligation.deposits {
+            for deposit in obligation.deposits.iter() {
+                if deposit.deposited_amount == 0 {
+                    continue; // Skip empty deposits
+                }
+
                 let deposit_reserve_pubkey = Pubkey::from(deposit.deposit_reserve.to_bytes());
                 if let Some(reserve) = self.get_reserve_by_pubkey(&deposit_reserve_pubkey)? {
                     // Get symbol and mint once
                     let symbol = reserve.token_symbol().to_string();
                     let mint = reserve.liquidity.mint_pubkey.to_string();
+                    let exchange_rate = reserve
+                        .collateral_exchange_rate()
+                        .map_err(|e| LendingError::RpcError(Box::new(e)))?;
+                    let amount = exchange_rate
+                        .fraction_collateral_to_liquidity(deposit.deposited_amount.into())
+                        .to_num::<u64>();
 
                     user_obligations.push(UserObligation {
                         symbol,
                         mint,
                         mint_decimals: reserve.liquidity.mint_decimals as u32,
-                        amount: deposit.deposited_amount,
+                        amount,
                         protocol_name: protocol_name.clone(),
                         market_name: market_name.clone(),
                         obligation_type: ObligationType::Asset,
@@ -195,18 +205,32 @@ impl KaminoClient {
             }
 
             // Process borrows
-            for borrow in obligation.borrows {
+            for borrow in obligation.borrows.iter() {
+                // Skip borrows that have no amount
+                if borrow.borrowed_amount_sf == 0 {
+                    continue;
+                }
+
                 let borrow_reserve_pubkey = Pubkey::from(borrow.borrow_reserve.to_bytes());
                 if let Some(reserve) = self.get_reserve_by_pubkey(&borrow_reserve_pubkey)? {
                     // Get symbol and mint once
                     let symbol = reserve.token_symbol().to_string();
                     let mint = reserve.liquidity.mint_pubkey.to_string();
-
+                    // let exchange_rate = reserve.collateral_exchange_rate()?;
+                    // let amount = Fraction::from_bits(borrow.borrowed_amount_sf).to_num::<u64>();
+                    let exchange_rate = reserve
+                        .collateral_exchange_rate()
+                        .map_err(|e| LendingError::RpcError(Box::new(e)))?;
+                    let amount = exchange_rate
+                        .fraction_collateral_to_liquidity(Fraction::from_bits(
+                            borrow.borrowed_amount_sf,
+                        ))
+                        .to_num::<u64>();
                     user_obligations.push(UserObligation {
                         symbol,
                         mint,
                         mint_decimals: reserve.liquidity.mint_decimals as u32,
-                        amount: borrow.borrowed_amount_sf as u64,
+                        amount,
                         protocol_name: protocol_name.clone(),
                         market_name: market_name.clone(),
                         obligation_type: ObligationType::Liability,

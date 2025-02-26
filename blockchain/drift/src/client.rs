@@ -105,15 +105,21 @@ impl DriftClient {
                 ObligationType::Liability
             };
 
-            let (symbol, mint, mint_decimals, market_name) = self
+            let (symbol, mint, mint_decimals, market_name, amount) = self
                 .spot_markets
                 .iter()
                 .find(|(_, m)| m.market_index == position.market_index)
                 .map(|(_, market)| {
-                    let name = String::from_utf8_lossy(&market.name)
-                        .trim_matches(char::from(0))
-                        .to_string();
-                    (name.clone(), market.mint.to_string(), market.decimals, name)
+                    let name = String::from_utf8_lossy(&market.name).trim().to_string();
+                    let token_amount = match crate::models::spot_market::get_token_amount(
+                        position.scaled_balance as u128,
+                        market,
+                        &position.balance_type,
+                    ) {
+                        Ok(amount) => amount as u64, // Convert back to u64 for UserObligation
+                        Err(_) => position.scaled_balance, // Fallback to scaled_balance if conversion fails
+                    };
+                    (name.clone(), market.mint.to_string(), market.decimals, name, token_amount)
                 })
                 .unwrap_or_else(|| {
                     let default_mint = Pubkey::default().to_string();
@@ -122,6 +128,7 @@ impl DriftClient {
                         default_mint,
                         6, // Default to 6 decimals which is common for many tokens
                         format!("UNKNOWN-{}", position.market_index),
+                        position.scaled_balance,
                     )
                 });
 
@@ -129,7 +136,7 @@ impl DriftClient {
                 symbol,
                 mint,
                 mint_decimals,
-                amount: position.scaled_balance,
+                amount,
                 protocol_name: protocol_name.clone(),
                 market_name,
                 obligation_type,

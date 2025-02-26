@@ -10,9 +10,9 @@ use crate::{
     save::client::SaveClient,
 };
 use common::{lending::LendingClient, LendingReserve, MintAsset, ObligationType, UserObligation};
+use common_rpc;
 use drift::client::DriftClient;
 use log::{error, info, warn};
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 
 pub struct LendingMarketAggregator {
@@ -22,7 +22,7 @@ pub struct LendingMarketAggregator {
     marginfi_client: MarginfiClient,
     kamino_client: KaminoClient,
     drift_client: DriftClient,
-    rpc_client: RpcClient,
+    rpc_url: String, // Store the RPC URL for use with pooled clients
 }
 
 impl Default for LendingMarketAggregator {
@@ -38,7 +38,6 @@ impl LendingMarketAggregator {
         let marginfi_client = MarginfiClient::new(rpc_url);
         let kamino_client = KaminoClient::new(rpc_url);
         let drift_client = DriftClient::new(rpc_url);
-        let rpc_client = RpcClient::new(rpc_url.to_string());
 
         // Create the aggregator with initial empty assets
         let mut aggregator = Self {
@@ -47,7 +46,7 @@ impl LendingMarketAggregator {
             marginfi_client,
             kamino_client,
             drift_client,
-            rpc_client,
+            rpc_url: rpc_url.to_string(),
         };
 
         // Initialize supported tokens
@@ -66,9 +65,9 @@ impl LendingMarketAggregator {
 
         // Define common assets with their symbols and mint addresses
         let tokens = [
-            ("SOL", "So11111111111111111111111111111111111111112"),
+            // ("SOL", "So11111111111111111111111111111111111111112"),
             ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
-            ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
+            // ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
             // Add more tokens as needed
         ];
 
@@ -121,9 +120,10 @@ impl LendingMarketAggregator {
         // Initialize supported tokens
         self.init_supported_tokens();
 
-        // Get the current slot sequentially first (not in parallel)
-        let current_slot =
-            self.rpc_client.get_slot().map_err(|e| ClientError::RpcError(Box::new(e)))?;
+        // Get the current slot using the pooled client approach
+        let current_slot = common_rpc::with_rpc_client(&self.rpc_url, |client| {
+            client.get_slot().map_err(|e| ClientError::RpcError(Box::new(e)))
+        })?;
 
         // Clone clients for use in separate tasks
         let save_client = self.save_client.clone();
@@ -246,9 +246,10 @@ impl LendingMarketAggregator {
         // Initialize supported tokens
         self.init_supported_tokens();
 
-        // Get the current slot using the RPC client directly
-        let current_slot =
-            self.rpc_client.get_slot().map_err(|e| ClientError::RpcError(Box::new(e)))?;
+        // Get the current slot using the pooled client approach
+        let current_slot = common_rpc::with_rpc_client(&self.rpc_url, |client| {
+            client.get_slot().map_err(|e| ClientError::RpcError(Box::new(e)))
+        })?;
 
         // Fetch markets for each protocol sequentially using the generic fetch_markets method
         info!("Loading Save reserves");

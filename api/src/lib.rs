@@ -1,6 +1,12 @@
 use anyhow::Result;
-use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
-use common::{LendingReserve, MintAsset};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::Json,
+    routing::get,
+    Router,
+};
+use common::{LendingReserve, MintAsset, ObligationType, UserObligation};
 use log::{debug, error, info};
 use serde::Serialize;
 use sqlx::{Pool, Sqlite};
@@ -72,6 +78,35 @@ impl From<MintAsset> for ApiMintAsset {
                 .into_iter()
                 .map(ApiLendingReserve::from)
                 .collect(),
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct ApiUserObligation {
+    pub symbol: String,
+    pub mint: String,
+    pub protocol_name: String,
+    pub market_name: String,
+    #[serde(serialize_with = "serialize_dollar_amount")]
+    pub amount: (u64, u32), // (amount, mint_decimals)
+    pub obligation_type: String,
+}
+
+impl From<UserObligation> for ApiUserObligation {
+    fn from(obligation: UserObligation) -> Self {
+        let obligation_type = match obligation.obligation_type {
+            ObligationType::Asset => "Supply",
+            ObligationType::Liability => "Borrow",
+        };
+
+        Self {
+            symbol: obligation.symbol,
+            mint: obligation.mint,
+            protocol_name: obligation.protocol_name,
+            market_name: obligation.market_name,
+            amount: (obligation.amount, obligation.mint_decimals),
+            obligation_type: obligation_type.to_string(),
         }
     }
 }
@@ -188,6 +223,29 @@ impl ApiService {
         info!("Retrieved market averages for {} markets", markets.len());
         Ok(markets)
     }
+
+    pub async fn get_user_obligations(&self, pubkey: &str) -> Result<Vec<ApiUserObligation>> {
+        debug!("Fetching user obligations from chain-api for pubkey: {}", pubkey);
+
+        // Forward request to chain-api
+        let url = format!("http://localhost:3000/obligations/{}", pubkey);
+        let response = self.client.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            error!("Failed to fetch obligations: HTTP {}", response.status());
+            return Err(anyhow::anyhow!("Failed to fetch obligations: HTTP {}", response.status()));
+        }
+
+        let obligations = response
+            .json::<Vec<UserObligation>>()
+            .await?
+            .into_iter()
+            .map(ApiUserObligation::from)
+            .collect::<Vec<ApiUserObligation>>();
+
+        info!("Retrieved {} obligations for pubkey {}", obligations.len(), pubkey);
+        Ok(obligations)
+    }
 }
 
 #[derive(serde::Serialize, sqlx::FromRow)]
@@ -250,10 +308,20 @@ where
     serializer.serialize_str(&amount_f64.to_string())
 }
 
+fn serialize_dollar_amount<S>(amount_data: &(u64, u32), serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let (amount, mint_decimals) = amount_data;
+    let amount_f64 = *amount as f64 / 10_f64.powi(*mint_decimals as i32);
+    serializer.serialize_str(&format!("{:.4}", amount_f64))
+}
+
 pub async fn create_router(service: ApiService) -> Router {
     Router::new()
         .route("/current_markets", get(get_current_markets))
         .route("/historical_markets", get(get_historical_markets))
+        .route("/wallet/{pubkey}", get(get_user_obligations))
         .with_state(service)
 }
 
@@ -282,6 +350,22 @@ async fn get_historical_markets(
         }
         Err(e) => {
             error!("Error fetching historical markets: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
+        }
+    }
+}
+
+async fn get_user_obligations(
+    State(service): State<ApiService>,
+    Path(pubkey): Path<String>,
+) -> (StatusCode, Json<Vec<ApiUserObligation>>) {
+    match service.get_user_obligations(&pubkey).await {
+        Ok(obligations) => {
+            info!("Successfully returned {} obligations for pubkey {}", obligations.len(), pubkey);
+            (StatusCode::OK, Json(obligations))
+        }
+        Err(e) => {
+            error!("Error fetching obligations for pubkey {}: {}", pubkey, e);
             (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![]))
         }
     }
