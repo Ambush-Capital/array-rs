@@ -69,3 +69,25 @@ pub struct TokenBalance {
     /// Token account address that holds this balance
     pub token_account: String,
 }
+
+/// Represents a user in the database
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserDB {
+    /// User's wallet address
+    pub wallet_address: String,
+    /// User's email address (optional)
+    pub email: Option<String>,
+    /// User's risk tolerance level ('low', 'medium', 'high')
+    pub risk_level: RiskLevel,
+    /// When the user account was created
+    pub created_date: chrono::DateTime<chrono::Utc>,
+    /// When the user last logged in (optional)
+    pub last_logged_in: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RiskLevel {
+    Low,
+    Medium,
+    High,
+}

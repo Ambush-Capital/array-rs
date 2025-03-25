@@ -8,7 +8,7 @@ use common::{
     ObligationType, UserObligation,
 };
 use common_rpc::{with_rpc_client, RpcError, RpcErrorConverter};
-use log::debug;
+use log::{debug, info};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 
@@ -76,6 +76,10 @@ impl DriftClient {
         for (pubkey, account) in accounts {
             if let Ok(market) = SpotMarket::try_deserialize(&mut &account.data[..]) {
                 if market.is_active() {
+                    info!(
+                        "Found active market: {:?} {} {}",
+                        market.name, market.mint, market.market_index
+                    );
                     spot_markets.push((pubkey, market));
                 }
             }

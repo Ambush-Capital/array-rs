@@ -46,6 +46,24 @@ impl Worker {
         .await?;
         info!("Successfully created/verified lending_markets table schema");
 
+        // Create users table
+        info!("Creating users table if it doesn't exist...");
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                wallet_address VARCHAR(64) NOT NULL UNIQUE,
+                email VARCHAR(255),
+                risk_level VARCHAR(10) CHECK (risk_level IN ('low', 'medium', 'high')),
+                created_date DATETIME NOT NULL,
+                last_logged_in DATETIME
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+        info!("Successfully created/verified users table schema");
+
         // Load sample data if available
         if let Err(e) = Worker::load_sample_data(&pool).await {
             error!("Failed to load sample data: {}", e);

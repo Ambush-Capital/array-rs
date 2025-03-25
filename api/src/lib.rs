@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::Json,
-    routing::get,
+    routing::{get, post, put},
     Router,
 };
 use common::{LendingReserve, MintAsset, ObligationType, UserObligation};
@@ -356,6 +356,9 @@ pub async fn create_router(service: ApiService) -> Router {
         .route("/historical_markets", get(get_historical_markets))
         .route("/wallet/{pubkey}", get(get_wallet_data))
         .route("/user_obligations/{pubkey}", get(get_user_obligations))
+        .route("/user", post(create_user))
+        .route("/user/{wallet_address}", get(get_user))
+        .route("/user/{wallet_address}", put(update_user))
         .with_state(service)
 }
 
@@ -450,6 +453,241 @@ impl From<common::TokenBalance> for ApiTokenBalance {
             mint: balance.mint,
             symbol: balance.symbol,
             amount: (balance.amount, balance.decimals as u32),
+        }
+    }
+}
+
+// User-related code
+use common::{RiskLevel, UserDB};
+use serde::Deserialize;
+
+// Request models for user endpoints
+#[derive(Debug, Deserialize)]
+pub struct CreateUserRequest {
+    pub wallet_address: String,
+    pub email: Option<String>,
+    pub risk_level: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateUserRequest {
+    pub email: Option<String>,
+    pub risk_level: Option<String>,
+    pub update_login_time: Option<bool>,
+}
+
+// Database query structure for users
+#[derive(sqlx::FromRow)]
+struct DbUser {
+    wallet_address: String,
+    email: Option<String>,
+    risk_level: String,
+    created_date: chrono::DateTime<chrono::Utc>,
+    last_logged_in: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl From<DbUser> for UserDB {
+    fn from(db_user: DbUser) -> Self {
+        let risk_level = match db_user.risk_level.to_lowercase().as_str() {
+            "low" => RiskLevel::Low,
+            "medium" => RiskLevel::Medium,
+            "high" => RiskLevel::High,
+            _ => RiskLevel::Low, // Default fallback
+        };
+
+        UserDB {
+            wallet_address: db_user.wallet_address,
+            email: db_user.email,
+            risk_level,
+            created_date: db_user.created_date,
+            last_logged_in: db_user.last_logged_in,
+        }
+    }
+}
+
+// Helper function to convert RiskLevel enum to string for database storage
+fn risk_level_to_str(risk_level: &RiskLevel) -> &str {
+    match risk_level {
+        RiskLevel::Low => "low",
+        RiskLevel::Medium => "medium",
+        RiskLevel::High => "high",
+    }
+}
+
+// Generic API response wrapper
+#[derive(Serialize)]
+struct ApiResponse<T> {
+    success: bool,
+    data: Option<T>,
+    error: Option<String>,
+}
+
+// Add user methods to ApiService
+impl ApiService {
+    pub async fn create_user(&self, user_data: CreateUserRequest) -> Result<UserDB> {
+        debug!("Creating new user with wallet address: {}", user_data.wallet_address);
+
+        let risk_level = match user_data.risk_level.to_lowercase().as_str() {
+            "low" => RiskLevel::Low,
+            "medium" => RiskLevel::Medium,
+            "high" => RiskLevel::High,
+            _ => return Err(anyhow::anyhow!("Invalid risk level: {}", user_data.risk_level)),
+        };
+
+        let now = chrono::Utc::now();
+
+        // Insert user into database
+        sqlx::query(
+            r#"
+            INSERT INTO users (wallet_address, email, risk_level, created_date, last_logged_in)
+            VALUES (?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&user_data.wallet_address)
+        .bind(&user_data.email)
+        .bind(risk_level_to_str(&risk_level))
+        .bind(now)
+        .bind(now) // Initial login time is same as creation time
+        .execute(&self.db_pool)
+        .await?;
+
+        info!("Successfully created new user with wallet address: {}", user_data.wallet_address);
+
+        // Return the created user
+        Ok(UserDB {
+            wallet_address: user_data.wallet_address,
+            email: user_data.email,
+            risk_level,
+            created_date: now,
+            last_logged_in: Some(now),
+        })
+    }
+
+    pub async fn get_user(&self, wallet_address: &str) -> Result<UserDB> {
+        debug!("Fetching user with wallet address: {}", wallet_address);
+
+        let user = sqlx::query_as::<_, DbUser>(
+            r#"
+            SELECT wallet_address, email, risk_level, created_date, last_logged_in
+            FROM users
+            WHERE wallet_address = ?
+            "#,
+        )
+        .bind(wallet_address)
+        .fetch_optional(&self.db_pool)
+        .await?;
+
+        match user {
+            Some(user) => {
+                info!("Successfully retrieved user with wallet address: {}", wallet_address);
+                Ok(user.into())
+            }
+            None => Err(anyhow::anyhow!("User not found with wallet address: {}", wallet_address)),
+        }
+    }
+
+    pub async fn update_user(
+        &self,
+        wallet_address: &str,
+        user_data: UpdateUserRequest,
+    ) -> Result<UserDB> {
+        debug!("Updating user with wallet address: {}", wallet_address);
+
+        // First check if user exists
+        // Check if user exists, return error if not found
+        if let Err(_) = self.get_user(wallet_address).await {
+            return Err(anyhow::anyhow!(
+                "Cannot update non-existent user with wallet address: {}",
+                wallet_address
+            ));
+        }
+
+        // Update the user
+        sqlx::query(
+            r#"
+            UPDATE users
+            SET email = COALESCE(?, email),
+                risk_level = COALESCE(?, risk_level),
+                last_logged_in = CASE WHEN ? = 1 THEN datetime('now') ELSE last_logged_in END
+            WHERE wallet_address = ?
+            "#,
+        )
+        .bind(&user_data.email)
+        .bind(&user_data.risk_level)
+        .bind(user_data.update_login_time.unwrap_or(false))
+        .bind(wallet_address)
+        .execute(&self.db_pool)
+        .await?;
+
+        info!("Successfully updated user with wallet address: {}", wallet_address);
+
+        // Return the updated user
+        self.get_user(wallet_address).await
+    }
+}
+
+// Handler functions for user endpoints
+async fn create_user(
+    State(service): State<ApiService>,
+    Json(user_data): Json<CreateUserRequest>,
+) -> (StatusCode, Json<ApiResponse<UserDB>>) {
+    match service.create_user(user_data).await {
+        Ok(user) => {
+            info!("Successfully created user with wallet address: {}", user.wallet_address);
+            (
+                StatusCode::CREATED,
+                Json(ApiResponse { success: true, data: Some(user), error: None }),
+            )
+        }
+        Err(e) => {
+            error!("Error creating user: {}", e);
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse { success: false, data: None, error: Some(e.to_string()) }),
+            )
+        }
+    }
+}
+
+async fn get_user(
+    State(service): State<ApiService>,
+    Path(wallet_address): Path<String>,
+) -> (StatusCode, Json<ApiResponse<UserDB>>) {
+    match service.get_user(&wallet_address).await {
+        Ok(user) => {
+            info!("Successfully retrieved user with wallet address: {}", wallet_address);
+            (StatusCode::OK, Json(ApiResponse { success: true, data: Some(user), error: None }))
+        }
+        Err(e) => {
+            error!("Error retrieving user with wallet address {}: {}", wallet_address, e);
+            let status = if e.to_string().contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            (status, Json(ApiResponse { success: false, data: None, error: Some(e.to_string()) }))
+        }
+    }
+}
+
+async fn update_user(
+    State(service): State<ApiService>,
+    Path(wallet_address): Path<String>,
+    Json(user_data): Json<UpdateUserRequest>,
+) -> (StatusCode, Json<ApiResponse<UserDB>>) {
+    match service.update_user(&wallet_address, user_data).await {
+        Ok(user) => {
+            info!("Successfully updated user with wallet address: {}", wallet_address);
+            (StatusCode::OK, Json(ApiResponse { success: true, data: Some(user), error: None }))
+        }
+        Err(e) => {
+            error!("Error updating user with wallet address {}: {}", wallet_address, e);
+            let status = if e.to_string().contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            (status, Json(ApiResponse { success: false, data: None, error: Some(e.to_string()) }))
         }
     }
 }
