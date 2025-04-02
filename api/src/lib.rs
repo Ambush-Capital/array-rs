@@ -10,6 +10,7 @@ use common::{LendingReserve, MintAsset, ObligationType, UserObligation};
 use log::{debug, error, info};
 use serde::Serialize;
 use sqlx::{Pool, Sqlite};
+use tower_http::cors::{Any, CorsLayer};
 
 fn format_rate(rate: u128) -> String {
     let rate_f64 = (rate as f64) / 1e19;
@@ -351,6 +352,13 @@ where
 }
 
 pub async fn create_router(service: ApiService) -> Router {
+    // Add CORS middleware
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any)
+        .allow_credentials(false);
+
     Router::new()
         .route("/current_markets", get(get_current_markets))
         .route("/historical_markets", get(get_historical_markets))
@@ -359,6 +367,7 @@ pub async fn create_router(service: ApiService) -> Router {
         .route("/user", post(create_user))
         .route("/user/{wallet_address}", get(get_user))
         .route("/user/{wallet_address}", put(update_user))
+        .layer(cors)
         .with_state(service)
 }
 
